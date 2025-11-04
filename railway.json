@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "PORT=${PORT:-8080} php artisan serve --host=0.0.0.0 --port=$PORT",
+    "startCommand": "php -S 0.0.0.0:$PORT public/index.php",
     "restartPolicyType": "ON_FAILURE"
   }
 }

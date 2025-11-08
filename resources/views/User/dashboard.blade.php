@@ -1549,6 +1549,9 @@ async function updateNgrokUrl() {
 
         const data = await response.json();
 
+        // Log the full response for debugging
+        console.log('Response:', data);
+
         if (data.status === 'success') {
             Swal.fire({
                 icon: 'success',
@@ -1564,14 +1567,16 @@ async function updateNgrokUrl() {
             throw new Error(data.message || 'Failed to update');
         }
     } catch (error) {
+        console.error('Full error:', error);
         Swal.fire({
             icon: 'error',
             title: 'Update Failed',
-            text: error.message,
+            text: error.message || 'Server error occurred',
             confirmButtonColor: '#e50914'
         });
     }
 }
+
 
 // Remove ngrok URL
 async function removeNgrokUrl() {

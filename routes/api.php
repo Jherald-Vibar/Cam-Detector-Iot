@@ -23,9 +23,9 @@ Route::post('/servo/move', [CamController::class, 'moveServo']);
 Route::get('/api/mqtt/status', [CamController::class, 'getMqttStatus']);
 Route::get('/api/camera/status/mqtt', [CamController::class, 'getCameraStatusMqtt']);
 
-Route::post('/api/ngrok/update', [CamController::class, 'updateNgrokUrl']);
-Route::post('/api/ngrok/remove', [CamController::class, 'removeNgrokUrl']);
-Route::get('/api/stream-url', [CamController::class, 'getStreamUrl']);
+Route::post('/ngrok/update', [CamController::class, 'updateNgrokUrl']);
+Route::post('/ngrok/remove', [CamController::class, 'removeNgrokUrl']);
+Route::get('/stream-url', [CamController::class, 'getStreamUrl']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

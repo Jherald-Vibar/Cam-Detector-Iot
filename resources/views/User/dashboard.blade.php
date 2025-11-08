@@ -218,14 +218,6 @@
             z-index: 10;
         }
 
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
         .sidebar {
             display: flex;
             flex-direction: column;
@@ -644,12 +636,6 @@
             gap: 15px;
         }
 
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
         .section-subtitle {
             font-size: 13px;
             color: var(--text-secondary);
@@ -686,6 +672,7 @@
             border: none;
             background: transparent;
             padding: 12px 0;
+            color: var(--text-primary);
         }
 
         .password-input:focus {
@@ -700,21 +687,17 @@
             margin-top: 30px;
         }
 
-        .btn {
+        .btn-cancel {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             padding: 12px 30px;
-            border: none;
             border-radius: 8px;
             font-family: 'Poppins', sans-serif;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
-        }
-
-        .btn-cancel {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-primary);
         }
 
         .btn-cancel:hover {
@@ -724,6 +707,14 @@
         .btn-save {
             background: var(--accent);
             color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .btn-save:hover {
@@ -849,8 +840,8 @@
                         </div>
 
                         <div class="camera-info">
-                            <span>Connected to: <strong id="cameraIp">192.168.1.112</strong></span>
-                            <span>Mode: Snapshot | FPS: <span class="fps-indicator" id="currentFps">10</span></span>
+                            <span>Connected to: <strong id="cameraIp">Loading...</strong></span>
+                            <span>Mode: <span id="connectionMode">Snapshot</span> | FPS: <span class="fps-indicator" id="currentFps">10</span></span>
                         </div>
                     </div>
 
@@ -930,6 +921,46 @@
 
                             <div class="servo-status" id="servoStatus">
                                 Ready
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ngrok Configuration Section -->
+                <div style="margin-top: 30px;">
+                    <div class="video-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                🌐 Remote Access Configuration
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
+                            <div style="margin-bottom: 15px;">
+                                <strong>Current Status:</strong>
+                                <span id="ngrokStatusText" style="color: var(--text-secondary);">Loading...</span>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <input
+                                    type="text"
+                                    id="ngrokUrlInput"
+                                    placeholder="https://your-url.ngrok-free.app"
+                                    style="flex: 1; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: 'Poppins', sans-serif; font-size: 14px;"
+                                >
+                                <button class="btn" onclick="updateNgrokUrl()">Update ngrok URL</button>
+                                <button class="btn" onclick="removeNgrokUrl()" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">
+                                    Use Local IP
+                                </button>
+                            </div>
+
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                <strong>💡 How to use ngrok for remote access:</strong><br>
+                                1. Open terminal/cmd on the computer with ESP32-CAM<br>
+                                2. Run: <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">ngrok http {{ $cameraIp ?? '192.168.68.112' }}:80</code><br>
+                                3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)<br>
+                                4. Paste it above and click "Update ngrok URL"<br>
+                                5. Now you can access your camera from anywhere!
                             </div>
                         </div>
                     </div>
@@ -1039,65 +1070,23 @@
                 </div>
             </div>
         </div>
-
-<!-- ngrok Configuration Section - Add this new section -->
-<div style="margin-top: 30px;">
-    <div class="video-section">
-        <div class="section-header">
-            <div class="section-title">
-                🌐 Remote Access Configuration
-            </div>
-        </div>
-
-        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
-            <div style="margin-bottom: 15px;">
-                <strong>Current Status:</strong>
-                <span id="ngrokStatusText" style="color: var(--text-secondary);">Using local IP</span>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input
-                    type="text"
-                    id="ngrokUrlInput"
-                    placeholder="https://your-url.ngrok-free.dev"
-                    style="flex: 1; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: 'Poppins', sans-serif; font-size: 14px;"
-                >
-                <button class="btn" onclick="updateNgrokUrl()">Update ngrok URL</button>
-                <button class="btn" onclick="removeNgrokUrl()" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">
-                    Use Local IP
-                </button>
-            </div>
-
-            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
-                <strong>💡 How to use ngrok for remote access:</strong><br>
-                1. Open terminal/cmd on the computer with ESP32-CAM<br>
-                2. Run: <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">ngrok http {{ $cameraIp ?? '192.168.68.112' }}:80</code><br>
-                3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.dev)<br>
-                4. Paste it above and click "Update ngrok URL"<br>
-                5. Now you can access your camera from anywhere!
-            </div>
-        </div>
-    </div>
-</div>
     </div>
 
     <form id="logoutForm" method="POST" action="{{ route('logout') }}" style="display: none;">
         @csrf
     </form>
 
-   <script>
+    <script>
     // ==================== GLOBAL VARIABLES ====================
     const camSnapshot = document.getElementById('cameraSnapshot');
     const loadingMsg = document.getElementById('loadingMsg');
     const errorMsg = document.getElementById('errorMsg');
     const timestampDiv = document.getElementById('timestamp');
 
-    // Get camera IP from Laravel (passed via Blade)
-    const cameraIp = "{{ $cameraIp ?? '192.168.1.112' }}";
-    const snapshotUrl = `http://${cameraIp}/snapshot`;
-
-    // Update IP display
-    document.getElementById('cameraIp').textContent = cameraIp;
+    // These will be set dynamically based on ngrok status
+    let baseUrl = '';
+    let snapshotUrl = '';
+    let usingNgrok = false;
 
     // Snapshot mode variables
     let snapshotInterval = null;
@@ -1111,264 +1100,342 @@
     let currentTiltAngle = 90;
     const servoStep = 15;
 
+    // ==================== FETCH STREAM URL ====================
+    async function fetchStreamUrl() {
+        try {
+            const response = await fetch('/api/stream-url');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                baseUrl = data.base_url;
+                snapshotUrl = data.snapshot_url;
+                usingNgrok = data.using_ngrok;
+
+                console.log('📡 Stream URL fetched:', {
+                    baseUrl,
+                    snapshotUrl,
+                    usingNgrok,
+                    mode: data.mode
+                });
+
+                // Update UI
+                const displayText = usingNgrok ? 'Remote (ngrok)' : baseUrl.replace('http://', '');
+                document.getElementById('cameraIp').textContent = displayText;
+                document.getElementById('connectionMode').textContent = usingNgrok ? 'Remote' : 'Local';
+
+                return true;
+            }
+            throw new Error('Failed to fetch stream URL');
+        } catch (error) {
+            console.error('❌ Error fetching stream URL:', error);
+            // Fallback to local IP
+            const fallbackIp = "{{ $cameraIp ?? '192.168.68.112' }}";
+            baseUrl = `http://${fallbackIp}`;
+            snapshotUrl = `${baseUrl}/snapshot`;
+            usingNgrok = false;
+            document.getElementById('cameraIp').textContent = fallbackIp;
+            return false;
+        }
+    }
+
     // ==================== NAVIGATION ====================
     function navigateTo(pageName) {
-      const pages = document.querySelectorAll('.page');
-      pages.forEach(page => page.classList.remove('active'));
+        const pages = document.querySelectorAll('.page');
+        pages.forEach(page => page.classList.remove('active'));
 
-      const targetPage = document.getElementById(pageName + 'Page');
-      if (targetPage) {
-        targetPage.classList.add('active');
-      }
+        const targetPage = document.getElementById(pageName + 'Page');
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
     }
 
     // ==================== THEME TOGGLE ====================
     function toggleTheme() {
-      const html = document.documentElement;
-      const currentTheme = html.getAttribute('data-theme');
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
 
-      if (currentTheme === 'light') {
-        html.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        html.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
-      }
+        if (currentTheme === 'light') {
+            html.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            html.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+        }
     }
 
     // Load saved theme
     function loadTheme() {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
     }
 
     // ==================== SNAPSHOT MODE FUNCTIONS ====================
-    function startSnapshotMode() {
-      if (isSnapshotModeActive) return;
+    async function startSnapshotMode() {
+        if (isSnapshotModeActive) return;
 
-      console.log('📸 Starting snapshot mode at 10 FPS...');
-      isSnapshotModeActive = true;
+        console.log('📸 Starting snapshot mode at 10 FPS...');
 
-      // Show loading initially
-      loadingMsg.style.display = 'flex';
-      errorMsg.style.display = 'none';
-      camSnapshot.style.display = 'none';
+        // Fetch the current stream URL first
+        await fetchStreamUrl();
 
-      if (snapshotInterval) {
-        clearInterval(snapshotInterval);
-      }
+        isSnapshotModeActive = true;
 
-      const intervalMs = 1000 / currentFps;
+        // Show loading initially
+        loadingMsg.style.display = 'flex';
+        errorMsg.style.display = 'none';
+        camSnapshot.style.display = 'none';
 
-      snapshotInterval = setInterval(() => {
+        if (snapshotInterval) {
+            clearInterval(snapshotInterval);
+        }
+
+        const intervalMs = 1000 / currentFps;
+
+        snapshotInterval = setInterval(() => {
+            updateSnapshot();
+        }, intervalMs);
+
         updateSnapshot();
-      }, intervalMs);
 
-      updateSnapshot();
+        const modeText = usingNgrok ? 'Remote (ngrok)' : 'Local';
+        document.getElementById('streamStatus').textContent =
+            `${modeText} Snapshot Mode (${currentFps} FPS)`;
 
-      document.getElementById('streamStatus').textContent = `Snapshot Mode (${currentFps} FPS)`;
-
-      console.log(`✅ Snapshot mode active - ${currentFps} FPS`);
+        console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
     }
 
     function stopSnapshotMode() {
-      if (snapshotInterval) {
-        clearInterval(snapshotInterval);
-        snapshotInterval = null;
-      }
+        if (snapshotInterval) {
+            clearInterval(snapshotInterval);
+            snapshotInterval = null;
+        }
 
-      isSnapshotModeActive = false;
-      camSnapshot.style.display = 'none';
-      loadingMsg.style.display = 'flex';
+        isSnapshotModeActive = false;
+        camSnapshot.style.display = 'none';
+        loadingMsg.style.display = 'flex';
 
-      document.getElementById('streamStatus').textContent = 'Stopped';
+        document.getElementById('streamStatus').textContent = 'Stopped';
 
-      console.log('⏹️ Snapshot mode stopped');
+        console.log('⏹️ Snapshot mode stopped');
     }
 
     function updateSnapshot() {
-      const timestamp = Date.now();
-      const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
+        if (!snapshotUrl) {
+            console.error('❌ No snapshot URL available');
+            showError();
+            return;
+        }
 
-      const img = new Image();
+        const timestamp = Date.now();
+        const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
-      img.onload = function() {
-        camSnapshot.src = this.src;
-        camSnapshot.style.display = 'block';
-        loadingMsg.style.display = 'none';
-        errorMsg.style.display = 'none';
+        console.log('🖼️ Fetching snapshot from:', snapshotWithTimestamp);
 
-        updateTimestamp();
+        // For ngrok, use fetch to add custom headers
+        if (usingNgrok) {
+            fetch(snapshotWithTimestamp, {
+                method: 'GET',
+                headers: {
+                    'ngrok-skip-browser-warning': 'true',
+                    'User-Agent': 'CustomAgent'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const objectUrl = URL.createObjectURL(blob);
+                camSnapshot.onload = function() {
+                    URL.revokeObjectURL(objectUrl);
+                };
+                camSnapshot.src = objectUrl;
+                camSnapshot.style.display = 'block';
+                loadingMsg.style.display = 'none';
+                errorMsg.style.display = 'none';
 
+                updateTimestamp();
+                updateFpsCounter();
+            })
+            .catch(error => {
+                console.error('❌ ngrok Snapshot failed:', {
+                    url: snapshotWithTimestamp,
+                    error: error.message,
+                    hint: 'Check if ngrok is running and ESP32 is accessible'
+                });
+                showError();
+            });
+        } else {
+            // For local IP, use regular Image loading
+            const img = new Image();
+
+            img.onload = function() {
+                camSnapshot.src = this.src;
+                camSnapshot.style.display = 'block';
+                loadingMsg.style.display = 'none';
+                errorMsg.style.display = 'none';
+
+                updateTimestamp();
+                updateFpsCounter();
+            };
+
+            img.onerror = function(e) {
+                console.error('❌ Local Snapshot failed:', {
+                    url: snapshotWithTimestamp,
+                    error: e
+                });
+                showError();
+            };
+
+            img.src = snapshotWithTimestamp;
+        }
+    }
+
+    function updateFpsCounter() {
         frameCount++;
         const currentTime = Date.now();
         const elapsed = currentTime - lastFrameTime;
 
         if (elapsed >= 1000) {
-          const actualFps = Math.round((frameCount * 1000) / elapsed);
-          document.getElementById('currentFps').textContent = actualFps;
-          frameCount = 0;
-          lastFrameTime = currentTime;
+            const actualFps = Math.round((frameCount * 1000) / elapsed);
+            document.getElementById('currentFps').textContent = actualFps;
+            frameCount = 0;
+            lastFrameTime = currentTime;
         }
-      };
-
-      img.onerror = function() {
-        console.log('❌ Snapshot failed to load');
-        showError();
-      };
-
-      // Start loading the image
-      img.src = snapshotWithTimestamp;
     }
 
     function updateTimestamp() {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      timestampDiv.textContent = timeStr;
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        timestampDiv.textContent = timeStr;
     }
 
     function showError() {
-      stopSnapshotMode();
-      camSnapshot.style.display = 'none';
-      loadingMsg.style.display = 'none';
-      errorMsg.style.display = 'flex';
-      console.log('❌ Camera connection failed');
+        stopSnapshotMode();
+        camSnapshot.style.display = 'none';
+        loadingMsg.style.display = 'none';
+        errorMsg.style.display = 'flex';
+        console.log('❌ Camera connection failed');
     }
 
     // ==================== SERVO CONTROL FUNCTIONS ====================
     function moveServo(direction) {
-      let newPan = currentPanAngle;
-      let newTilt = currentTiltAngle;
+        let newPan = currentPanAngle;
+        let newTilt = currentTiltAngle;
 
-      switch(direction) {
-        case 'up':
-          newTilt = Math.min(180, currentTiltAngle + servoStep);
-          break;
-        case 'down':
-          newTilt = Math.max(0, currentTiltAngle - servoStep);
-          break;
-        case 'left':
-          newPan = Math.max(0, currentPanAngle - servoStep);
-          break;
-        case 'right':
-          newPan = Math.min(180, currentPanAngle + servoStep);
-          break;
-        case 'center':
-          newPan = 90;
-          newTilt = 90;
-          break;
-      }
+        switch(direction) {
+            case 'up':
+                newTilt = Math.min(180, currentTiltAngle + servoStep);
+                break;
+            case 'down':
+                newTilt = Math.max(0, currentTiltAngle - servoStep);
+                break;
+            case 'left':
+                newPan = Math.max(0, currentPanAngle - servoStep);
+                break;
+            case 'right':
+                newPan = Math.min(180, currentPanAngle + servoStep);
+                break;
+            case 'center':
+                newPan = 90;
+                newTilt = 90;
+                break;
+        }
 
-      updateServoPosition(newPan, newTilt);
+        updateServoPosition(newPan, newTilt);
     }
 
     function updateServoAngle(axis, value) {
-      const angle = parseInt(value);
+        const angle = parseInt(value);
 
-      if (axis === 'pan') {
-        document.getElementById('panAngle').textContent = angle + '°';
-        currentPanAngle = angle;
-        sendServoCommand(angle, currentTiltAngle);
-      } else if (axis === 'tilt') {
-        document.getElementById('tiltAngle').textContent = angle + '°';
-        currentTiltAngle = angle;
-        sendServoCommand(currentPanAngle, angle);
-      }
+        if (axis === 'pan') {
+            document.getElementById('panAngle').textContent = angle + '°';
+            currentPanAngle = angle;
+            sendServoCommand(angle, currentTiltAngle);
+        } else if (axis === 'tilt') {
+            document.getElementById('tiltAngle').textContent = angle + '°';
+            currentTiltAngle = angle;
+            sendServoCommand(currentPanAngle, angle);
+        }
     }
 
     function updateServoPosition(pan, tilt) {
-      currentPanAngle = pan;
-      currentTiltAngle = tilt;
+        currentPanAngle = pan;
+        currentTiltAngle = tilt;
 
-      // Update sliders and displays
-      document.getElementById('panSlider').value = pan;
-      document.getElementById('tiltSlider').value = tilt;
-      document.getElementById('panAngle').textContent = pan + '°';
-      document.getElementById('tiltAngle').textContent = tilt + '°';
+        document.getElementById('panSlider').value = pan;
+        document.getElementById('tiltSlider').value = tilt;
+        document.getElementById('panAngle').textContent = pan + '°';
+        document.getElementById('tiltAngle').textContent = tilt + '°';
 
-      sendServoCommand(pan, tilt);
-    }
-
-    function resetServos() {
-      updateServoPosition(90, 90);
+        sendServoCommand(pan, tilt);
     }
 
     function sendServoCommand(pan, tilt) {
-      const statusDiv = document.getElementById('servoStatus');
+        const statusDiv = document.getElementById('servoStatus');
+        statusDiv.textContent = `Moving to Pan: ${pan}° | Tilt: ${tilt}°`;
 
-      // Show status
-      statusDiv.textContent = `Moving to Pan: ${pan}° | Tilt: ${tilt}°`;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
 
-      // Get CSRF token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
-
-      // Send command through Laravel API
-      fetch('/api/servo/move', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-          pan: pan,
-          tilt: tilt
+        fetch('/api/servo/move', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify({ pan: pan, tilt: tilt })
         })
-      })
         .then(response => response.json())
         .then(data => {
-          console.log(`Servo command sent: Pan=${pan}°, Tilt=${tilt}°`);
-
-          if (data.status === 'success') {
-            statusDiv.textContent = `✅ Position: Pan ${data.pan}° | Tilt ${data.tilt}°`;
-          } else {
-            throw new Error(data.message || 'Failed to move camera');
-          }
+            console.log(`Servo command sent: Pan=${pan}°, Tilt=${tilt}°`);
+            if (data.status === 'success') {
+                statusDiv.textContent = `✅ Position: Pan ${data.pan}° | Tilt ${data.tilt}°`;
+            } else {
+                throw new Error(data.message || 'Failed to move camera');
+            }
         })
         .catch(error => {
-          console.error('Servo command failed:', error);
-          statusDiv.textContent = '❌ Failed to move camera';
+            console.error('Servo command failed:', error);
+            statusDiv.textContent = '❌ Failed to move camera';
         });
     }
 
     // ==================== LOGOUT ====================
     function confirmLogout() {
-      Swal.fire({
-        title: 'Are you sure?',
-        text: "You will be logged out of your session",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#e50914',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, logout',
-        cancelButtonText: 'Cancel',
-        reverseButtons: true
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Show loading
-          Swal.fire({
-            title: 'Logging out...',
-            text: 'Please wait',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => {
-              Swal.showLoading();
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You will be logged out of your session",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e50914',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, logout',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Logging out...',
+                    text: 'Please wait',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+                setTimeout(() => {
+                    document.getElementById('logoutForm').submit();
+                }, 500);
             }
-          });
-
-          // Submit the logout form
-          setTimeout(() => {
-            document.getElementById('logoutForm').submit();
-          }, 500);
-        }
-      });
+        });
     }
 
     // ==================== SETTINGS FUNCTIONS ====================
@@ -1384,12 +1451,9 @@
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
-        // FIXED: Use relative URL instead of form.action to avoid mixed content
         fetch('/user/account-update', {
             method: 'POST',
             body: formData,
@@ -1411,24 +1475,19 @@
                     title: 'Success!',
                     text: result.message,
                     confirmButtonColor: '#e50914'
-                }).then(() => {
-                    navigateTo('home');
-                });
+                }).then(() => { navigateTo('home'); });
             } else {
                 throw new Error(result.message || 'Failed to update account');
             }
         })
         .catch(error => {
             console.error('Update error:', error);
-
             let errorMessage = 'Something went wrong. Please try again.';
-
             if (error.errors) {
                 errorMessage = Object.values(error.errors).flat().join('<br>');
             } else if (error.message) {
                 errorMessage = error.message;
             }
-
             Swal.fire({
                 icon: 'error',
                 title: 'Update Failed',
@@ -1439,214 +1498,206 @@
     }
 
     function togglePassword(inputId) {
-      const input = document.getElementById(inputId);
-      if (input.type === 'password') {
-        input.type = 'text';
-      } else {
-        input.type = 'password';
-      }
+        const input = document.getElementById(inputId);
+        input.type = input.type === 'password' ? 'text' : 'password';
     }
 
-    // Accordion functionality for mobile settings
     function initAccordion() {
-      const sidebarItem = document.querySelector('.sidebar-item');
-      const contentArea = document.querySelector('.content-area');
+        const sidebarItem = document.querySelector('.sidebar-item');
+        const contentArea = document.querySelector('.content-area');
 
-      if (!sidebarItem || !contentArea) return;
+        if (!sidebarItem || !contentArea) return;
 
-      // Only apply accordion on mobile
-      if (window.innerWidth <= 1024) {
-        sidebarItem.addEventListener('click', function() {
-          this.classList.toggle('active');
-          contentArea.classList.toggle('expanded');
+        if (window.innerWidth <= 1024) {
+            sidebarItem.addEventListener('click', function() {
+                this.classList.toggle('active');
+                contentArea.classList.toggle('expanded');
+            });
+        } else {
+            contentArea.classList.add('expanded');
+            sidebarItem.classList.add('active');
+        }
+    }
+
+    // ==================== NGROK FUNCTIONS ====================
+    async function updateNgrokUrl() {
+        const url = document.getElementById('ngrokUrlInput').value.trim();
+
+        if (!url) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing URL',
+                text: 'Please enter a ngrok URL',
+                confirmButtonColor: '#e50914'
+            });
+            return;
+        }
+
+        if (!url.startsWith('https://') || !url.includes('ngrok')) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid URL',
+                text: 'Please enter a valid ngrok HTTPS URL (e.g., https://abc123.ngrok-free.app)',
+                confirmButtonColor: '#e50914'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Updating...',
+            text: 'Please wait',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => { Swal.showLoading(); }
         });
-      } else {
-        // On desktop, always show content
-        contentArea.classList.add('expanded');
-        sidebarItem.classList.add('active');
-      }
+
+        try {
+            const response = await fetch('/api/ngrok/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ ngrok_url: url })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Updated!',
+                    text: 'ngrok URL updated. Restarting stream...',
+                    confirmButtonColor: '#e50914',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(async () => {
+                    stopSnapshotMode();
+                    await fetchStreamUrl();
+                    await checkNgrokStatus();
+                    setTimeout(() => { startSnapshotMode(); }, 500);
+                });
+            } else {
+                throw new Error(data.message || 'Failed to update');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                text: error.message,
+                confirmButtonColor: '#e50914'
+            });
+        }
+    }
+
+    async function removeNgrokUrl() {
+        Swal.fire({
+            title: 'Switch to Local IP?',
+            text: 'This will use your local network IP instead of ngrok',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#e50914',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, switch',
+            cancelButtonText: 'Cancel'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/api/ngrok/remove', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Switched!',
+                            text: 'Now using local IP. Restarting stream...',
+                            confirmButtonColor: '#e50914',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(async () => {
+                            stopSnapshotMode();
+                            await fetchStreamUrl();
+                            await checkNgrokStatus();
+                            setTimeout(() => { startSnapshotMode(); }, 500);
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed',
+                        text: error.message,
+                        confirmButtonColor: '#e50914'
+                    });
+                }
+            }
+        });
+    }
+
+    async function checkNgrokStatus() {
+        try {
+            const response = await fetch('/api/stream-url');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                if (data.using_ngrok) {
+                    document.getElementById('ngrokStatusText').innerHTML =
+                        '✅ <span style="color: #4ade80;">Using ngrok:</span> ' + data.base_url;
+                    document.getElementById('ngrokUrlInput').value = data.base_url;
+                } else {
+                    document.getElementById('ngrokStatusText').innerHTML =
+                        '📡 Using local IP: ' + data.base_url;
+                    document.getElementById('ngrokUrlInput').value = '';
+                }
+            }
+        } catch (error) {
+            console.log('Could not check ngrok status:', error);
+        }
     }
 
     // ==================== INITIALIZATION ====================
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      loadTheme();
-      initAccordion();
-      console.log('📡 Camera IP:', cameraIp);
-      console.log('🖼️ Snapshot URL:', snapshotUrl);
-      console.log('🎯 Servo control ready');
-      console.log('🚀 Starting snapshot mode automatically...');
+    document.addEventListener('DOMContentLoaded', async function() {
+        loadTheme();
+        initAccordion();
 
-      // Auto-start snapshot mode
-      setTimeout(() => {
-        startSnapshotMode();
-      }, 1000);
+        console.log('🚀 Initializing camera system...');
 
-      // Update timestamp every second
-      setInterval(updateTimestamp, 1000);
-    });
+        await fetchStreamUrl();
+        await checkNgrokStatus();
 
-    // Reinitialize accordion on window resize
-    window.addEventListener('resize', function() {
-      const contentArea = document.querySelector('.content-area');
-      const sidebarItem = document.querySelector('.sidebar-item');
+        console.log('📡 Using URL:', snapshotUrl);
+        console.log('🎯 Servo control ready');
 
-      if (!contentArea || !sidebarItem) return;
+        setTimeout(() => { startSnapshotMode(); }, 1000);
+        setInterval(updateTimestamp, 1000);
 
-      if (window.innerWidth > 1024) {
-        // Desktop: always show
-        contentArea.classList.add('expanded');
-        sidebarItem.classList.add('active');
-      } else {
-        // Mobile: start collapsed
-        contentArea.classList.remove('expanded');
-        sidebarItem.classList.remove('active');
-      }
-    });
-
-    setInterval(() => {
-      if (isSnapshotModeActive && errorMsg.style.display === 'flex') {
-        console.log('🔄 Auto-reconnecting...');
-        startSnapshotMode();
-      }
-    }, 5000);
-
-// Add these functions to your existing JavaScript
-
-// Update ngrok URL
-/**
- * Update ngrok URL
- */
-// Update ngrok URL
-async function updateNgrokUrl() {
-    const url = document.getElementById('ngrokUrlInput').value.trim();
-
-    if (!url) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Missing URL',
-            text: 'Please enter a ngrok URL',
-            confirmButtonColor: '#e50914'
-        });
-        return;
-    }
-
-    Swal.fire({
-        title: 'Updating...',
-        text: 'Please wait',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    try {
-        const response = await fetch('/api/ngrok/update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({ ngrok_url: url })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Updated!',
-                text: 'ngrok URL updated successfully. Reloading...',
-                confirmButtonColor: '#e50914',
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                location.reload();
-            });
-        } else {
-            throw new Error(data.message || 'Failed to update');
-        }
-    } catch (error) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Update Failed',
-            text: error.message,
-            confirmButtonColor: '#e50914'
-        });
-    }
-}
-
-// Remove ngrok URL
-async function removeNgrokUrl() {
-    Swal.fire({
-        title: 'Switch to Local IP?',
-        text: 'This will use your local network IP instead of ngrok',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#e50914',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, switch',
-        cancelButtonText: 'Cancel'
-    }).then(async (result) => {
-        if (result.isConfirmed) {
-            try {
-                const response = await fetch('/api/ngrok/remove', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                    }
-                });
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Switched!',
-                        text: 'Now using local IP. Reloading...',
-                        confirmButtonColor: '#e50914',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        location.reload();
-                    });
-                }
-            } catch (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Failed',
-                    text: error.message,
-                    confirmButtonColor: '#e50914'
-                });
+        setInterval(() => {
+            if (isSnapshotModeActive && errorMsg.style.display === 'flex') {
+                console.log('🔄 Auto-reconnecting...');
+                startSnapshotMode();
             }
+        }, 5000);
+    });
+
+    window.addEventListener('resize', function() {
+        const contentArea = document.querySelector('.content-area');
+        const sidebarItem = document.querySelector('.sidebar-item');
+
+        if (!contentArea || !sidebarItem) return;
+
+        if (window.innerWidth > 1024) {
+            contentArea.classList.add('expanded');
+            sidebarItem.classList.add('active');
+        } else {
+            contentArea.classList.remove('expanded');
+            sidebarItem.classList.remove('active');
         }
     });
-}
-
-// Check ngrok status on page load
-async function checkNgrokStatus() {
-    try {
-        const response = await fetch('/api/stream-url');
-        const data = await response.json();
-
-        if (data.status === 'success' && data.using_ngrok) {
-            document.getElementById('ngrokStatusText').innerHTML =
-                '✅ <span style="color: #4ade80;">Using ngrok:</span> ' + data.base_url;
-            document.getElementById('ngrokUrlInput').value = data.base_url;
-        }
-    } catch (error) {
-        console.log('Could not check ngrok status:', error);
-    }
-}
-
-// Call this on page load (add to your existing DOMContentLoaded)
-document.addEventListener('DOMContentLoaded', function() {
-    // ... your existing code ...
-
-    // Add ngrok status check
-    checkNgrokStatus();
-});
-  </script>
+    </script>
 </body>
 </html>

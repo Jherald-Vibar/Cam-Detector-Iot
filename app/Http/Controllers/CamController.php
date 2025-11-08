@@ -527,4 +527,49 @@ public function updateNgrokUrl(Request $request)
 
             return view('User.dashboard', compact('cameraIp', 'isReachable'));
         }
+        public function updateCameraIp(Request $request)
+{
+    try {
+        $request->validate([
+            'ip' => 'required|ip'
+        ]);
+
+        $ip = $request->input('ip');
+
+        // Test if the IP is reachable
+        Log::info("Testing connection to new IP: {$ip}");
+
+        try {
+            $response = Http::timeout(3)->get("http://{$ip}/");
+
+            if (!$response->successful()) {
+                throw new \Exception("Camera did not respond");
+            }
+        } catch (\Exception $e) {
+            Log::warning("IP {$ip} is not reachable: " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => "Cannot connect to {$ip}. Make sure the camera is online and the IP is correct."
+            ], 400);
+        }
+
+        // Save the new IP
+        Cache::put('esp32_camera_ip', $ip, now()->addHours(24));
+
+        Log::info("✅ Camera IP updated to: {$ip}");
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Camera IP updated successfully',
+            'ip' => $ip
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error("Failed to update camera IP: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
     }

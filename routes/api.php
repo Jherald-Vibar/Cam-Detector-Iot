@@ -27,7 +27,7 @@ Route::get('/proxy-snapshot', [CamController::class, 'proxySnapshot']);
 Route::post('/ngrok/update', [CamController::class, 'updateNgrokUrl']);
 Route::post('/ngrok/remove', [CamController::class, 'removeNgrokUrl']);
 Route::get('/stream-url', [CamController::class, 'getStreamUrl']);
-
+Route::post('/camera/update-ip', [CamController::class, 'updateCameraIp']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });

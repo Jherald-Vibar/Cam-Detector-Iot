@@ -960,7 +960,8 @@
                                 2. Run: <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">ngrok http {{ $cameraIp ?? '192.168.68.112' }}:80</code><br>
                                 3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)<br>
                                 4. Paste it above and click "Update ngrok URL"<br>
-                                5. Now you can access your camera from anywhere!
+                                5. The system will automatically use <strong>/stream</strong> endpoint for MJPEG video<br>
+                                6. Now you can access your camera from anywhere!
                             </div>
                         </div>
                     </div>
@@ -1051,9 +1052,9 @@
                                             <div class="password-field">
                                                 <span style="font-size: 16px; margin-right: 8px;">🔒</span>
                                                 <input type="password" name="new_password_confirmation" class="form-input password-input"
-                                                    placeholder="Confirm new password" id="confirmPassword">
+                                                        placeholder="Confirm new password" id="confirmPassword">
                                                 <span style="font-size: 16px; cursor: pointer; margin-left: 8px;"
-                                                    onclick="togglePassword('confirmPassword')">👁️</span>
+                                                        onclick="togglePassword('confirmPassword')">👁️</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1109,7 +1110,14 @@
 
             if (data.status === 'success') {
                 baseUrl = data.base_url;
-                snapshotUrl = data.snapshot_url;
+
+                // FIX: Automatically append /stream for ngrok URLs
+                if (data.using_ngrok) {
+                    snapshotUrl = `${baseUrl}/stream`; // Use /stream for ngrok
+                } else {
+                    snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for local
+                }
+
                 usingNgrok = data.using_ngrok;
 
                 console.log('📡 Stream URL fetched:', {
@@ -1132,7 +1140,7 @@
             // Fallback to local IP
             const fallbackIp = "{{ $cameraIp ?? '192.168.68.112' }}";
             baseUrl = `http://${fallbackIp}`;
-            snapshotUrl = `${baseUrl}/snapshot`;
+            snapshotUrl = `${baseUrl}/snapshot`; // Default to snapshot for local
             usingNgrok = false;
             document.getElementById('cameraIp').textContent = fallbackIp;
             return false;
@@ -1199,9 +1207,9 @@
             window.streamFpsInterval = null;
         }
 
-        // For MJPEG stream (ngrok), we don't need an interval - use DIRECT URL
+        // For ngrok (MJPEG stream), use the already configured URL
         if (usingNgrok) {
-            console.log('✅ Using direct ngrok stream (no proxy)');
+            console.log('✅ Using ngrok MJPEG stream:', snapshotUrl);
             updateSnapshot(); // This will set up the continuous stream
             document.getElementById('streamStatus').textContent = 'Remote - Live MJPEG Stream';
         } else {
@@ -1246,14 +1254,12 @@
 
         const timestamp = Date.now();
 
-        // For ngrok, use DIRECT stream URL (no proxy!)
+        // For ngrok, use the already configured stream URL
         if (usingNgrok) {
-            const streamUrl = snapshotUrl.replace('/snapshot', '/stream');
-
-            console.log('📺 Using DIRECT MJPEG stream:', streamUrl);
+            console.log('📺 Using MJPEG stream:', snapshotUrl);
 
             // Set up the image element ONCE for MJPEG stream
-            if (camSnapshot.src !== streamUrl) {
+            if (camSnapshot.src !== snapshotUrl) {
                 camSnapshot.onload = function() {
                     console.log('✅ Stream connected successfully');
                     camSnapshot.style.display = 'block';
@@ -1265,7 +1271,7 @@
 
                 camSnapshot.onerror = function(e) {
                     console.error('❌ Stream failed:', {
-                        streamUrl: streamUrl,
+                        streamUrl: snapshotUrl,
                         error: e,
                         hint: 'Check if ngrok is running and ESP32 is accessible'
                     });
@@ -1275,8 +1281,8 @@
                     }
                 };
 
-                // Set the src to start the MJPEG stream DIRECTLY
-                camSnapshot.src = streamUrl;
+                // Set the src to start the MJPEG stream
+                camSnapshot.src = snapshotUrl;
             }
 
             // Update timestamp periodically for stream mode
@@ -1294,7 +1300,7 @@
             }
 
         } else {
-            // For local IP, use snapshot mode
+            // For local IP, use snapshot mode with timestamp
             const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
             console.log('🖼️ Fetching snapshot directly:', snapshotWithTimestamp);

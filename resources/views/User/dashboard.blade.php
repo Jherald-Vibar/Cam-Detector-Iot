@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        /* Your existing CSS styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -1113,7 +1114,7 @@
 
                 // FIX: Automatically append /stream for ngrok URLs
                 if (data.using_ngrok) {
-                    snapshotUrl = `${baseUrl}/snapshot`; // Use /stream for ngrok
+                    snapshotUrl = `${baseUrl}/stream`; // Use /stream for ngrok
                 } else {
                     snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for local
                 }
@@ -1213,14 +1214,14 @@
             updateSnapshot(); // This will set up the continuous stream
             document.getElementById('streamStatus').textContent = 'Remote - Live MJPEG Stream';
         } else {
-            // For local snapshots, use interval
+            // For local snapshots, use interval to continuously fetch snapshots
             const intervalMs = 1000 / currentFps;
             snapshotInterval = setInterval(() => {
                 updateSnapshot();
             }, intervalMs);
-            updateSnapshot();
-            document.getElementById('streamStatus').textContent = `Local - ${currentFps} FPS`;
-            console.log(`✅ Snapshot mode active - ${currentFps} FPS via Local`);
+            updateSnapshot(); // Start immediately
+            document.getElementById('streamStatus').textContent = `Local - Continuous Snapshots (${currentFps} FPS)`;
+            console.log(`✅ Snapshot mode active - Continuous snapshots at ${currentFps} FPS via Local`);
         }
     }
 
@@ -1293,17 +1294,11 @@
                 window.streamFpsInterval = setInterval(updateFpsCounter, 100);
             }
 
-            // Clear the snapshot interval since MJPEG is continuous
-            if (snapshotInterval) {
-                clearInterval(snapshotInterval);
-                snapshotInterval = null;
-            }
-
         } else {
-            // For local IP, use snapshot mode with timestamp
+            // For local IP, use continuous snapshot mode with timestamp
             const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
-            console.log('🖼️ Fetching snapshot directly:', snapshotWithTimestamp);
+            console.log('🖼️ Fetching continuous snapshot:', snapshotWithTimestamp);
 
             const img = new Image();
 
@@ -1711,9 +1706,11 @@
         console.log('📡 Using URL:', snapshotUrl);
         console.log('🎯 Servo control ready');
 
+        // Auto-start the camera feed when page loads
         setTimeout(() => { startSnapshotMode(); }, 1000);
         setInterval(updateTimestamp, 1000);
 
+        // Auto-reconnect if connection fails
         setInterval(() => {
             if (isSnapshotModeActive && errorMsg.style.display === 'flex') {
                 console.log('🔄 Auto-reconnecting...');

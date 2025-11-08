@@ -11,7 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* Your existing CSS styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -961,7 +960,7 @@
                                 2. Run: <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">ngrok http {{ $cameraIp ?? '192.168.68.112' }}:80</code><br>
                                 3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)<br>
                                 4. Paste it above and click "Update ngrok URL"<br>
-                                5. The system will automatically use <strong>/stream</strong> endpoint for MJPEG video<br>
+                                5. The system will automatically use <strong>/snapshot</strong> endpoint for continuous snapshots<br>
                                 6. Now you can access your camera from anywhere!
                             </div>
                         </div>
@@ -1112,9 +1111,9 @@
             if (data.status === 'success') {
                 baseUrl = data.base_url;
 
-                // FIX: Automatically append /stream for ngrok URLs
+                // Use /snapshot for both ngrok and local
                 if (data.using_ngrok) {
-                    snapshotUrl = `${baseUrl}/stream`; // Use /stream for ngrok
+                    snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for ngrok
                 } else {
                     snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for local
                 }
@@ -1131,7 +1130,7 @@
                 // Update UI
                 const displayText = usingNgrok ? 'Remote (ngrok)' : baseUrl.replace('http://', '');
                 document.getElementById('cameraIp').textContent = displayText;
-                document.getElementById('connectionMode').textContent = usingNgrok ? 'Stream' : 'Snapshot';
+                document.getElementById('connectionMode').textContent = 'Continuous Snapshots';
 
                 return true;
             }
@@ -1141,9 +1140,10 @@
             // Fallback to local IP
             const fallbackIp = "{{ $cameraIp ?? '192.168.68.112' }}";
             baseUrl = `http://${fallbackIp}`;
-            snapshotUrl = `${baseUrl}/snapshot`; // Default to snapshot for local
+            snapshotUrl = `${baseUrl}/snapshot`;
             usingNgrok = false;
             document.getElementById('cameraIp').textContent = fallbackIp;
+            document.getElementById('connectionMode').textContent = 'Continuous Snapshots';
             return false;
         }
     }
@@ -1185,7 +1185,7 @@
     async function startSnapshotMode() {
         if (isSnapshotModeActive) return;
 
-        console.log('📸 Starting camera feed at ' + currentFps + ' FPS...');
+        console.log('📸 Starting continuous snapshot feed at ' + currentFps + ' FPS...');
 
         // Fetch the current stream URL first
         await fetchStreamUrl();
@@ -1208,21 +1208,20 @@
             window.streamFpsInterval = null;
         }
 
-        // For ngrok (MJPEG stream), use the already configured URL
-        if (usingNgrok) {
-            console.log('✅ Using ngrok MJPEG stream:', snapshotUrl);
-            updateSnapshot(); // This will set up the continuous stream
-            document.getElementById('streamStatus').textContent = 'Remote - Live MJPEG Stream';
-        } else {
-            // For local snapshots, use interval to continuously fetch snapshots
-            const intervalMs = 1000 / currentFps;
-            snapshotInterval = setInterval(() => {
-                updateSnapshot();
-            }, intervalMs);
-            updateSnapshot(); // Start immediately
-            document.getElementById('streamStatus').textContent = `Local - Continuous Snapshots (${currentFps} FPS)`;
-            console.log(`✅ Snapshot mode active - Continuous snapshots at ${currentFps} FPS via Local`);
-        }
+        // For BOTH ngrok and local, use continuous snapshot mode
+        console.log('✅ Using continuous snapshot mode:', snapshotUrl);
+
+        // Set up interval for continuous snapshots
+        const intervalMs = 1000 / currentFps;
+        snapshotInterval = setInterval(() => {
+            updateSnapshot();
+        }, intervalMs);
+
+        // Start immediately
+        updateSnapshot();
+
+        document.getElementById('streamStatus').textContent = `Continuous Snapshots (${currentFps} FPS)`;
+        console.log(`✅ Continuous snapshot mode active - ${currentFps} FPS`);
     }
 
     function stopSnapshotMode() {
@@ -1238,7 +1237,7 @@
         isSnapshotModeActive = false;
         consecutiveErrors = 0;
         camSnapshot.style.display = 'none';
-        camSnapshot.src = ''; // Clear the stream
+        camSnapshot.src = ''; // Clear the image
         loadingMsg.style.display = 'flex';
 
         document.getElementById('streamStatus').textContent = 'Stopped';
@@ -1255,77 +1254,36 @@
 
         const timestamp = Date.now();
 
-        // For ngrok, use the already configured stream URL
-        if (usingNgrok) {
-            console.log('📺 Using MJPEG stream:', snapshotUrl);
+        // For BOTH ngrok and local, use continuous snapshot fetching
+        const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
-            // Set up the image element ONCE for MJPEG stream
-            if (camSnapshot.src !== snapshotUrl) {
-                camSnapshot.onload = function() {
-                    console.log('✅ Stream connected successfully');
-                    camSnapshot.style.display = 'block';
-                    loadingMsg.style.display = 'none';
-                    errorMsg.style.display = 'none';
-                    consecutiveErrors = 0;
-                    updateTimestamp();
-                };
+        console.log('🖼️ Fetching continuous snapshot:', snapshotWithTimestamp);
 
-                camSnapshot.onerror = function(e) {
-                    console.error('❌ Stream failed:', {
-                        streamUrl: snapshotUrl,
-                        error: e,
-                        hint: 'Check if ngrok is running and ESP32 is accessible'
-                    });
-                    consecutiveErrors++;
-                    if (consecutiveErrors >= maxConsecutiveErrors) {
-                        showError();
-                    }
-                };
+        const img = new Image();
 
-                // Set the src to start the MJPEG stream
-                camSnapshot.src = snapshotUrl;
-            }
+        img.onload = function() {
+            camSnapshot.src = this.src;
+            camSnapshot.style.display = 'block';
+            loadingMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            consecutiveErrors = 0;
 
-            // Update timestamp periodically for stream mode
             updateTimestamp();
+            updateFpsCounter();
+        };
 
-            // Update FPS counter for stream
-            if (!window.streamFpsInterval) {
-                window.streamFpsInterval = setInterval(updateFpsCounter, 100);
+        img.onerror = function(e) {
+            console.error('❌ Snapshot failed:', {
+                url: snapshotWithTimestamp,
+                error: e
+            });
+            consecutiveErrors++;
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+                showError();
             }
+        };
 
-        } else {
-            // For local IP, use continuous snapshot mode with timestamp
-            const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
-
-            console.log('🖼️ Fetching continuous snapshot:', snapshotWithTimestamp);
-
-            const img = new Image();
-
-            img.onload = function() {
-                camSnapshot.src = this.src;
-                camSnapshot.style.display = 'block';
-                loadingMsg.style.display = 'none';
-                errorMsg.style.display = 'none';
-                consecutiveErrors = 0;
-
-                updateTimestamp();
-                updateFpsCounter();
-            };
-
-            img.onerror = function(e) {
-                console.error('❌ Local Snapshot failed:', {
-                    url: snapshotWithTimestamp,
-                    error: e
-                });
-                consecutiveErrors++;
-                if (consecutiveErrors >= maxConsecutiveErrors) {
-                    showError();
-                }
-            };
-
-            img.src = snapshotWithTimestamp;
-        }
+        img.src = snapshotWithTimestamp;
     }
 
     function updateFpsCounter() {

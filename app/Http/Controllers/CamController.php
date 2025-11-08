@@ -189,44 +189,47 @@ public function updateNgrokUrl(Request $request)
     /**
      * Get current stream URL (ngrok or local)
      */
-    public function getStreamUrl(Request $request)
-    {
-        try {
-            $ngrokUrl = Cache::get('ngrok_url');
-            $cameraIp = Cache::get('esp32_camera_ip', '192.168.68.112');
+   public function getStreamUrl(Request $request)
+{
+    try {
+        $ngrokUrl = Cache::get('ngrok_url');
+        $cameraIp = Cache::get('esp32_camera_ip', '192.168.68.112');
 
-            if ($ngrokUrl) {
-                Log::info("📡 Using ngrok URL: {$ngrokUrl}");
+        if ($ngrokUrl) {
+            // Remove trailing slash if present
+            $ngrokUrl = rtrim($ngrokUrl, '/');
 
-                return response()->json([
-                    'status' => 'success',
-                    'base_url' => $ngrokUrl,
-                    'snapshot_url' => $ngrokUrl . '/snapshot',
-                    'using_ngrok' => true,
-                    'mode' => 'remote'
-                ]);
-            }
-
-            $localUrl = "http://{$cameraIp}";
-            Log::info("📡 Using local IP: {$localUrl}");
+            Log::info("📡 Using ngrok URL: {$ngrokUrl}");
 
             return response()->json([
                 'status' => 'success',
-                'base_url' => $localUrl,
-                'snapshot_url' => $localUrl . '/snapshot',
-                'using_ngrok' => false,
-                'mode' => 'local'
+                'base_url' => $ngrokUrl,
+                'snapshot_url' => $ngrokUrl . '/snapshot',
+                'using_ngrok' => true,
+                'mode' => 'remote'
             ]);
-
-        } catch (\Exception $e) {
-            Log::error("❌ Failed to get stream URL: " . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve stream URL',
-                'error' => $e->getMessage()
-            ], 500);
         }
+
+        $localUrl = "http://{$cameraIp}";
+        Log::info("📡 Using local IP: {$localUrl}");
+
+        return response()->json([
+            'status' => 'success',
+            'base_url' => $localUrl,
+            'snapshot_url' => $localUrl . '/snapshot',
+            'using_ngrok' => false,
+            'mode' => 'local'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to get stream URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to retrieve stream URL',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
         /**
          * Get MQTT connection status

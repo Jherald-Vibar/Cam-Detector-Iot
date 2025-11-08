@@ -1090,10 +1090,12 @@
 
     // Snapshot mode variables
     let snapshotInterval = null;
-    let currentFps = 10;
+    let currentFps = 15; // Increased from 10 to 15 FPS for better performance
     let frameCount = 0;
     let lastFrameTime = Date.now();
     let isSnapshotModeActive = false;
+    let consecutiveErrors = 0;
+    let maxConsecutiveErrors = 3;
 
     // Servo Control Variables
     let currentPanAngle = 90;
@@ -1175,45 +1177,36 @@
     async function startSnapshotMode() {
         if (isSnapshotModeActive) return;
 
-        console.log('📸 Starting camera feed...');
+        console.log('📸 Starting camera feed at ' + currentFps + ' FPS...');
 
         // Fetch the current stream URL first
         await fetchStreamUrl();
 
         isSnapshotModeActive = true;
+        consecutiveErrors = 0;
 
         // Show loading initially
         loadingMsg.style.display = 'flex';
         errorMsg.style.display = 'none';
         camSnapshot.style.display = 'none';
 
-        // For ngrok, use continuous stream (no interval needed)
-        if (usingNgrok) {
-            updateSnapshot();
-
-            const modeText = 'Remote (Stream)';
-            document.getElementById('streamStatus').textContent = `${modeText} - Live MJPEG`;
-            console.log('✅ Stream mode active via ngrok');
-        } else {
-            // For local, use snapshot interval
-            if (snapshotInterval) {
-                clearInterval(snapshotInterval);
-            }
-
-            const intervalMs = 1000 / currentFps;
-
-            snapshotInterval = setInterval(() => {
-                updateSnapshot();
-            }, intervalMs);
-
-            updateSnapshot();
-
-            const modeText = 'Local';
-            document.getElementById('streamStatus').textContent =
-                `${modeText} Snapshot Mode (${currentFps} FPS)`;
-
-            console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
+        if (snapshotInterval) {
+            clearInterval(snapshotInterval);
         }
+
+        const intervalMs = 1000 / currentFps;
+
+        snapshotInterval = setInterval(() => {
+            updateSnapshot();
+        }, intervalMs);
+
+        updateSnapshot();
+
+        const modeText = usingNgrok ? 'Remote (ngrok)' : 'Local';
+        document.getElementById('streamStatus').textContent =
+            `${modeText} - ${currentFps} FPS`;
+
+        console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
     }
 
     function stopSnapshotMode() {
@@ -1222,14 +1215,9 @@
             snapshotInterval = null;
         }
 
-        if (window.streamFpsInterval) {
-            clearInterval(window.streamFpsInterval);
-            window.streamFpsInterval = null;
-        }
-
         isSnapshotModeActive = false;
+        consecutiveErrors = 0;
         camSnapshot.style.display = 'none';
-        camSnapshot.src = ''; // Stop the stream
         loadingMsg.style.display = 'flex';
 
         document.getElementById('streamStatus').textContent = 'Stopped';

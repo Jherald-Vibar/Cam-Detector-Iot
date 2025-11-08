@@ -11,8 +11,8 @@ use PhpMqtt\Client\ConnectionSettings;
 
 class CamController extends Controller
 {
-    // ===== MQTT CONFIGURATION =====
-    private $mqttHost = 'abc123def456.s2.eu.hivemq.cloud';
+    // ===== MQTT CONFIGURATION - MUST MATCH ESP32! =====
+    private $mqttHost = '8c33605f8fe843f0a8bc3deca5d34911.s1.eu.hivemq.cloud';  // ✅ FIXED!
     private $mqttPort = 8883;
     private $mqttUsername = 'theodore_admin';
     private $mqttPassword = '0529100804Miii';
@@ -50,43 +50,49 @@ class CamController extends Controller
         $pan = $request->input('pan');
         $tilt = $request->input('tilt');
 
-        Log::info("MQTT: Sending servo command - Pan: {$pan}, Tilt: {$tilt}");
+        Log::info("🎯 MQTT: Sending servo command - Pan: {$pan}, Tilt: {$tilt}");
 
         try {
             // Create MQTT connection settings
             $connectionSettings = (new ConnectionSettings)
                 ->setUsername($this->mqttUsername)
                 ->setPassword($this->mqttPassword)
-                ->setUseTls(true)  // Enable SSL/TLS
-                ->setTlsSelfSignedAllowed(true)  // Allow self-signed certificates
-                ->setConnectTimeout(5)  // 5 second timeout
-                ->setKeepAliveInterval(60);  // Keep connection alive
+                ->setUseTls(true)
+                ->setTlsSelfSignedAllowed(true)
+                ->setConnectTimeout(10)
+                ->setKeepAliveInterval(60);
 
-            // Create MQTT client
-            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, $this->mqttClientId);
+            // Create MQTT client with unique ID per request
+            $clientId = $this->mqttClientId . '_' . time();
+            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, $clientId);
 
             // Connect to broker
-            Log::info("MQTT: Connecting to broker...");
+            Log::info("🔌 MQTT: Connecting to {$this->mqttHost}:{$this->mqttPort}");
             $mqtt->connect($connectionSettings, true);
-            Log::info("MQTT: Connected successfully!");
+            Log::info("✅ MQTT: Connected successfully!");
 
             // Prepare message
             $message = json_encode([
-                'pan' => $pan,
-                'tilt' => $tilt,
-                'timestamp' => time()
+                'pan' => (int)$pan,
+                'tilt' => (int)$tilt,
+                'timestamp' => time(),
+                'source' => 'laravel'
             ]);
 
             // Publish to servo command topic
             $mqtt->publish(
-                'theodore/servo/command',  // Topic
-                $message,                   // Message
-                0                          // QoS level 0 (fire and forget)
+                'theodore/servo/command',
+                $message,
+                0,      // QoS level 0
+                false   // Not retained
             );
 
-            Log::info("MQTT: Message published successfully - {$message}");
+            Log::info("📤 MQTT: Message published - {$message}");
 
-            // Disconnect
+            // Give it a moment to ensure delivery
+            usleep(100000); // 100ms
+
+            // Disconnect cleanly
             $mqtt->disconnect();
 
             return response()->json([
@@ -95,23 +101,26 @@ class CamController extends Controller
                 'pan' => $pan,
                 'tilt' => $tilt,
                 'method' => 'MQTT',
-                'broker' => $this->mqttHost
+                'broker' => $this->mqttHost,
+                'topic' => 'theodore/servo/command',
+                'payload' => json_decode($message, true)
             ]);
 
         } catch (\Exception $e) {
-            Log::error("MQTT Error: " . $e->getMessage());
+            Log::error("❌ MQTT Error: " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
 
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to send MQTT command',
                 'error' => $e->getMessage(),
+                'broker' => $this->mqttHost,
+                'port' => $this->mqttPort,
                 'troubleshooting' => [
-                    '1. Check MQTT broker credentials in CamController.php',
-                    '2. Verify ESP32 is connected to MQTT (check Serial Monitor)',
-                    '3. Check broker URL and port are correct',
-                    '4. Ensure SSL/TLS is configured (port 8883)',
-                    '5. Verify HiveMQ cluster is running'
+                    'Check ESP32 Serial Monitor for MQTT connection status',
+                    'Verify ESP32 is subscribed to theodore/servo/command',
+                    'Test MQTT connection using getMqttStatus endpoint',
+                    'Ensure both Laravel and ESP32 use same broker/credentials'
                 ]
             ], 500);
         }
@@ -122,37 +131,53 @@ class CamController extends Controller
      */
     public function getMqttStatus()
     {
+        Log::info("🔍 Testing MQTT connection to {$this->mqttHost}:{$this->mqttPort}");
+
         try {
             $connectionSettings = (new ConnectionSettings)
                 ->setUsername($this->mqttUsername)
                 ->setPassword($this->mqttPassword)
                 ->setUseTls(true)
                 ->setTlsSelfSignedAllowed(true)
-                ->setConnectTimeout(3);
+                ->setConnectTimeout(5);
 
-            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, 'Laravel_Status_Test');
+            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, 'Laravel_Status_Test_' . time());
+
+            Log::info("🔌 Attempting connection...");
             $mqtt->connect($connectionSettings, true);
+
+            Log::info("✅ Connected! Disconnecting...");
             $mqtt->disconnect();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'MQTT broker is reachable',
                 'broker' => $this->mqttHost,
-                'port' => $this->mqttPort
+                'port' => $this->mqttPort,
+                'username' => $this->mqttUsername
             ]);
 
         } catch (\Exception $e) {
+            Log::error("❌ MQTT Connection Failed: " . $e->getMessage());
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Cannot connect to MQTT broker',
                 'error' => $e->getMessage(),
-                'broker' => $this->mqttHost
+                'broker' => $this->mqttHost,
+                'port' => $this->mqttPort,
+                'hints' => [
+                    'Check if broker URL is correct',
+                    'Verify username and password',
+                    'Ensure port 8883 is accessible from your server',
+                    'Check if SSL/TLS certificates are valid'
+                ]
             ], 500);
         }
     }
 
     /**
-     * Get camera status from MQTT (optional - ESP32 publishes status)
+     * Get camera status from MQTT
      */
     public function getCameraStatusMqtt()
     {
@@ -161,33 +186,45 @@ class CamController extends Controller
                 ->setUsername($this->mqttUsername)
                 ->setPassword($this->mqttPassword)
                 ->setUseTls(true)
-                ->setTlsSelfSignedAllowed(true);
+                ->setTlsSelfSignedAllowed(true)
+                ->setConnectTimeout(5);
 
-            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, 'Laravel_Status_Reader');
+            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, 'Laravel_Reader_' . time());
             $mqtt->connect($connectionSettings, true);
 
             $status = null;
+            $messageReceived = false;
 
-            // Subscribe and wait for one message
-            $mqtt->subscribe('theodore/camera/status', function ($topic, $message) use (&$status) {
+            // Subscribe to camera status topic
+            $mqtt->subscribe('theodore/camera/status', function ($topic, $message) use (&$status, &$messageReceived) {
+                Log::info("📩 Received message from {$topic}: {$message}");
                 $status = json_decode($message, true);
+                $messageReceived = true;
             }, 0);
 
-            // Wait for message (max 3 seconds)
-            $mqtt->loop(true, true, 3);
+            Log::info("📡 Waiting for camera status...");
+
+            // Wait for message (max 5 seconds)
+            $startTime = time();
+            while (!$messageReceived && (time() - $startTime) < 5) {
+                $mqtt->loop(true);
+                usleep(100000); // 100ms
+            }
+
             $mqtt->disconnect();
 
             if ($status) {
                 return response()->json([
                     'status' => 'success',
                     'data' => $status,
-                    'method' => 'MQTT'
+                    'method' => 'MQTT',
+                    'topic' => 'theodore/camera/status'
                 ]);
             } else {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'No status received from ESP32 within 3 seconds',
-                    'hint' => 'ESP32 may not be connected to MQTT'
+                    'message' => 'No status received from ESP32 within 5 seconds',
+                    'hint' => 'ESP32 may not be connected to MQTT or not publishing status'
                 ], 404);
             }
 
@@ -202,7 +239,57 @@ class CamController extends Controller
     }
 
     /**
-     * Test if ESP32 is reachable (local HTTP - keep for backwards compatibility)
+     * Send test MQTT message (for debugging)
+     */
+    public function testMqtt()
+    {
+        try {
+            $connectionSettings = (new ConnectionSettings)
+                ->setUsername($this->mqttUsername)
+                ->setPassword($this->mqttPassword)
+                ->setUseTls(true)
+                ->setTlsSelfSignedAllowed(true)
+                ->setConnectTimeout(10);
+
+            $mqtt = new MqttClient($this->mqttHost, $this->mqttPort, 'Laravel_Test_' . time());
+
+            Log::info("🧪 Test: Connecting...");
+            $mqtt->connect($connectionSettings, true);
+
+            $testMessage = json_encode([
+                'pan' => 90,
+                'tilt' => 90,
+                'test' => true,
+                'timestamp' => time()
+            ]);
+
+            Log::info("🧪 Test: Publishing message...");
+            $mqtt->publish('theodore/servo/command', $testMessage, 0);
+
+            Log::info("🧪 Test: Message sent successfully!");
+            usleep(200000); // 200ms delay
+
+            $mqtt->disconnect();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Test message sent to ESP32',
+                'topic' => 'theodore/servo/command',
+                'payload' => json_decode($testMessage, true)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("🧪 Test Failed: " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Test failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Test if ESP32 is reachable via HTTP
      */
     private function testESP32Connection($ip)
     {
@@ -215,7 +302,7 @@ class CamController extends Controller
     }
 
     /**
-     * Get camera status (local HTTP - keep for backwards compatibility)
+     * Get camera status via HTTP (backwards compatibility)
      */
     public function getCameraStatus()
     {
@@ -241,7 +328,7 @@ class CamController extends Controller
             'status' => 'offline',
             'reachable' => false,
             'ip' => $ip,
-            'message' => 'Camera is not reachable'
+            'message' => 'Camera is not reachable via HTTP'
         ]);
     }
 

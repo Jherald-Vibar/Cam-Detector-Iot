@@ -127,6 +127,117 @@ class CamController extends Controller
     }
 
     /**
+ * Update ngrok URL
+ */
+public function updateNgrokUrl(Request $request)
+{
+    try {
+        $request->validate([
+            'ngrok_url' => 'required|url|regex:/^https:\/\/.*\.ngrok.*\.app$|^https:\/\/.*\.ngrok-free\.dev$/'
+        ], [
+            'ngrok_url.regex' => 'Please provide a valid ngrok URL (e.g., https://abc123.ngrok-free.dev)'
+        ]);
+
+        $ngrokUrl = rtrim($request->ngrok_url, '/');
+
+        // Store in cache (24 hour expiry, similar to your camera IP pattern)
+        Cache::put('ngrok_url', $ngrokUrl, now()->addHours(24));
+
+        Log::info("🌐 ngrok URL updated: {$ngrokUrl}");
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'ngrok URL updated successfully',
+            'ngrok_url' => $ngrokUrl,
+            'expires_in' => '24 hours'
+        ]);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Invalid ngrok URL',
+            'errors' => $e->errors()
+        ], 422);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to update ngrok URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to update ngrok URL',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Remove ngrok URL (switch back to local IP)
+ */
+public function removeNgrokUrl(Request $request)
+{
+    try {
+        // Remove from cache
+        Cache::forget('ngrok_url');
+
+        Log::info("🔄 Switched back to local IP mode");
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Switched back to local IP successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to remove ngrok URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to switch to local IP',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Get current stream URL (ngrok or local)
+ */
+public function getStreamUrl(Request $request)
+{
+    try {
+        $ngrokUrl = Cache::get('ngrok_url');
+        $cameraIp = Cache::get('esp32_camera_ip', '192.168.68.112');
+
+        if ($ngrokUrl) {
+            Log::info("📡 Using ngrok URL: {$ngrokUrl}");
+
+            return response()->json([
+                'status' => 'success',
+                'base_url' => $ngrokUrl,
+                'snapshot_url' => $ngrokUrl . '/snapshot',
+                'using_ngrok' => true,
+                'mode' => 'remote'
+            ]);
+        }
+
+        $localUrl = "http://{$cameraIp}";
+        Log::info("📡 Using local IP: {$localUrl}");
+
+        return response()->json([
+            'status' => 'success',
+            'base_url' => $localUrl,
+            'snapshot_url' => $localUrl . '/snapshot',
+            'using_ngrok' => false,
+            'mode' => 'local'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to get stream URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to retrieve stream URL',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+    /**
      * Get MQTT connection status
      */
     public function getMqttStatus()

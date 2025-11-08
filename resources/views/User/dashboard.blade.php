@@ -1265,25 +1265,23 @@
       // Show status
       statusDiv.textContent = `Moving to Pan: ${pan}° | Tilt: ${tilt}°`;
 
-      // Get CSRF token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+      // DIRECT CONNECTION: Browser -> ESP32 (same network)
+      // This bypasses Laravel and connects directly to ESP32
+      const esp32Url = `http://${cameraIp}/servo?pan=${pan}&tilt=${tilt}`;
 
-      // Send command through Laravel API
-      fetch('/api/servo/move', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-          pan: pan,
-          tilt: tilt
-        })
+      fetch(esp32Url, {
+        method: 'GET',
+        mode: 'cors'
       })
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
-          console.log(`Servo command sent: Pan=${pan}°, Tilt=${tilt}°`);
+          console.log(`✅ Servo command sent: Pan=${pan}°, Tilt=${tilt}°`);
+          console.log('ESP32 Response:', data);
 
           if (data.status === 'success') {
             statusDiv.textContent = `✅ Position: Pan ${data.pan}° | Tilt ${data.tilt}°`;
@@ -1292,8 +1290,13 @@
           }
         })
         .catch(error => {
-          console.error('Servo command failed:', error);
+          console.error('❌ Servo command failed:', error);
           statusDiv.textContent = '❌ Failed to move camera';
+
+          // Show user-friendly error
+          if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            statusDiv.textContent = '❌ Cannot reach ESP32. Check network connection.';
+          }
         });
     }
 

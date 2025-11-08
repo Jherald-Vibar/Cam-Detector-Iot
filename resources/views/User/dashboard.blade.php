@@ -1113,7 +1113,7 @@
 
                 // FIX: Automatically append /stream for ngrok URLs
                 if (data.using_ngrok) {
-                    snapshotUrl = `${baseUrl}/stream`; // Use /stream for ngrok
+                    snapshotUrl = `${baseUrl}/snapshot`; // Use /stream for ngrok
                 } else {
                     snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for local
                 }

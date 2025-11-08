@@ -1039,6 +1039,46 @@
                 </div>
             </div>
         </div>
+
+<!-- ngrok Configuration Section - Add this new section -->
+<div style="margin-top: 30px;">
+    <div class="video-section">
+        <div class="section-header">
+            <div class="section-title">
+                🌐 Remote Access Configuration
+            </div>
+        </div>
+
+        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
+            <div style="margin-bottom: 15px;">
+                <strong>Current Status:</strong>
+                <span id="ngrokStatusText" style="color: var(--text-secondary);">Using local IP</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input
+                    type="text"
+                    id="ngrokUrlInput"
+                    placeholder="https://your-url.ngrok-free.dev"
+                    style="flex: 1; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: 'Poppins', sans-serif; font-size: 14px;"
+                >
+                <button class="btn" onclick="updateNgrokUrl()">Update ngrok URL</button>
+                <button class="btn" onclick="removeNgrokUrl()" style="background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);">
+                    Use Local IP
+                </button>
+            </div>
+
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                <strong>💡 How to use ngrok for remote access:</strong><br>
+                1. Open terminal/cmd on the computer with ESP32-CAM<br>
+                2. Run: <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px;">ngrok http {{ $cameraIp ?? '192.168.68.112' }}:80</code><br>
+                3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.dev)<br>
+                4. Paste it above and click "Update ngrok URL"<br>
+                5. Now you can access your camera from anywhere!
+            </div>
+        </div>
+    </div>
+</div>
     </div>
 
     <form id="logoutForm" method="POST" action="{{ route('logout') }}" style="display: none;">
@@ -1470,6 +1510,139 @@
         startSnapshotMode();
       }
     }, 5000);
+
+// Add these functions to your existing JavaScript
+
+// Update ngrok URL
+async function updateNgrokUrl() {
+    const url = document.getElementById('ngrokUrlInput').value.trim();
+
+    if (!url) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Missing URL',
+            text: 'Please enter a ngrok URL',
+            confirmButtonColor: '#e50914'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Updating...',
+        text: 'Please wait',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const response = await fetch('/api/ngrok/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ ngrok_url: url })
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Updated!',
+                text: 'ngrok URL updated successfully. Reloading...',
+                confirmButtonColor: '#e50914',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            throw new Error(data.message || 'Failed to update');
+        }
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Update Failed',
+            text: error.message,
+            confirmButtonColor: '#e50914'
+        });
+    }
+}
+
+// Remove ngrok URL
+async function removeNgrokUrl() {
+    Swal.fire({
+        title: 'Switch to Local IP?',
+        text: 'This will use your local network IP instead of ngrok',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#e50914',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, switch',
+        cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch('/api/ngrok/remove', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Switched!',
+                        text: 'Now using local IP. Reloading...',
+                        confirmButtonColor: '#e50914',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Failed',
+                    text: error.message,
+                    confirmButtonColor: '#e50914'
+                });
+            }
+        }
+    });
+}
+
+// Check ngrok status on page load
+async function checkNgrokStatus() {
+    try {
+        const response = await fetch('/api/stream-url');
+        const data = await response.json();
+
+        if (data.status === 'success' && data.using_ngrok) {
+            document.getElementById('ngrokStatusText').innerHTML =
+                '✅ <span style="color: #4ade80;">Using ngrok:</span> ' + data.base_url;
+            document.getElementById('ngrokUrlInput').value = data.base_url;
+        }
+    } catch (error) {
+        console.log('Could not check ngrok status:', error);
+    }
+}
+
+// Call this on page load (add to your existing DOMContentLoaded)
+document.addEventListener('DOMContentLoaded', function() {
+    // ... your existing code ...
+
+    // Add ngrok status check
+    checkNgrokStatus();
+});
   </script>
 </body>
 </html>

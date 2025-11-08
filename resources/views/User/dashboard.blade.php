@@ -1090,12 +1090,10 @@
 
     // Snapshot mode variables
     let snapshotInterval = null;
-    let currentFps = 15; // Increased from 10 to 15 FPS for better performance
+    let currentFps = 10;
     let frameCount = 0;
     let lastFrameTime = Date.now();
     let isSnapshotModeActive = false;
-    let consecutiveErrors = 0;
-    let maxConsecutiveErrors = 3;
 
     // Servo Control Variables
     let currentPanAngle = 90;
@@ -1177,43 +1175,44 @@
     async function startSnapshotMode() {
         if (isSnapshotModeActive) return;
 
-        console.log('📸 Starting camera feed at ' + currentFps + ' FPS...');
+        console.log('📸 Starting camera feed...');
 
         // Fetch the current stream URL first
         await fetchStreamUrl();
 
         isSnapshotModeActive = true;
-        consecutiveErrors = 0;
 
         // Show loading initially
         loadingMsg.style.display = 'flex';
         errorMsg.style.display = 'none';
         camSnapshot.style.display = 'none';
 
-        // Clear any existing intervals
-        if (snapshotInterval) {
-            clearInterval(snapshotInterval);
-            snapshotInterval = null;
-        }
-        if (window.streamFpsInterval) {
-            clearInterval(window.streamFpsInterval);
-            window.streamFpsInterval = null;
-        }
-
-        // For MJPEG stream (ngrok), we don't need an interval
+        // For ngrok, use continuous stream (no interval needed)
         if (usingNgrok) {
-            console.log('✅ Snapshot mode active - 15 FPS via Remote (ngrok)');
-            updateSnapshot(); // This will set up the continuous stream
-            document.getElementById('streamStatus').textContent = 'Remote (ngrok) - Live Stream';
+            updateSnapshot();
+
+            const modeText = 'Remote (Stream)';
+            document.getElementById('streamStatus').textContent = `${modeText} - Live MJPEG`;
+            console.log('✅ Stream mode active via ngrok');
         } else {
-            // For local snapshots, use interval
+            // For local, use snapshot interval
+            if (snapshotInterval) {
+                clearInterval(snapshotInterval);
+            }
+
             const intervalMs = 1000 / currentFps;
+
             snapshotInterval = setInterval(() => {
                 updateSnapshot();
             }, intervalMs);
+
             updateSnapshot();
-            document.getElementById('streamStatus').textContent = `Local - ${currentFps} FPS`;
-            console.log(`✅ Snapshot mode active - ${currentFps} FPS via Local`);
+
+            const modeText = 'Local';
+            document.getElementById('streamStatus').textContent =
+                `${modeText} Snapshot Mode (${currentFps} FPS)`;
+
+            console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
         }
     }
 
@@ -1222,15 +1221,15 @@
             clearInterval(snapshotInterval);
             snapshotInterval = null;
         }
+
         if (window.streamFpsInterval) {
             clearInterval(window.streamFpsInterval);
             window.streamFpsInterval = null;
         }
 
         isSnapshotModeActive = false;
-        consecutiveErrors = 0;
         camSnapshot.style.display = 'none';
-        camSnapshot.src = ''; // Clear the stream
+        camSnapshot.src = ''; // Stop the stream
         loadingMsg.style.display = 'flex';
 
         document.getElementById('streamStatus').textContent = 'Stopped';
@@ -1254,49 +1253,31 @@
 
             console.log('📺 Using MJPEG stream via proxy:', proxyUrl);
 
-            // Set up the image element ONCE for MJPEG stream
-            if (camSnapshot.src !== window.location.origin + proxyUrl) {
-                camSnapshot.onload = function() {
-                    console.log('✅ Stream connected successfully');
-                    camSnapshot.style.display = 'block';
-                    loadingMsg.style.display = 'none';
-                    errorMsg.style.display = 'none';
-                    consecutiveErrors = 0;
-                    updateTimestamp();
-                };
+            // For MJPEG streams, we can directly set the src
+            camSnapshot.onload = function() {
+                camSnapshot.style.display = 'block';
+                loadingMsg.style.display = 'none';
+                errorMsg.style.display = 'none';
+                updateTimestamp();
+            };
 
-                camSnapshot.onerror = function(e) {
-                    console.error('❌ Stream proxy failed:', {
-                        proxyUrl: proxyUrl,
-                        error: e,
-                        hint: 'Check Laravel logs and ensure ngrok is running'
-                    });
-                    consecutiveErrors++;
-                    if (consecutiveErrors >= maxConsecutiveErrors) {
-                        showError();
-                    }
-                };
+            camSnapshot.onerror = function(e) {
+                console.error('❌ Stream proxy failed:', {
+                    proxyUrl: proxyUrl,
+                    error: e,
+                    hint: 'Check Laravel logs and ensure ngrok is running'
+                });
+                showError();
+            };
 
-                // Set the src to start the MJPEG stream
-                camSnapshot.src = proxyUrl;
-            }
-
-            // Update timestamp periodically for stream mode
-            updateTimestamp();
+            camSnapshot.src = proxyUrl;
 
             // Update FPS counter for stream
             if (!window.streamFpsInterval) {
                 window.streamFpsInterval = setInterval(updateFpsCounter, 100);
             }
-
-            // Clear the snapshot interval since MJPEG is continuous
-            if (snapshotInterval) {
-                clearInterval(snapshotInterval);
-                snapshotInterval = null;
-            }
-
         } else {
-            // For local IP, use snapshot mode
+            // For local IP, direct Image loading with snapshots
             const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
             console.log('🖼️ Fetching snapshot directly:', snapshotWithTimestamp);
@@ -1308,7 +1289,6 @@
                 camSnapshot.style.display = 'block';
                 loadingMsg.style.display = 'none';
                 errorMsg.style.display = 'none';
-                consecutiveErrors = 0;
 
                 updateTimestamp();
                 updateFpsCounter();
@@ -1319,10 +1299,7 @@
                     url: snapshotWithTimestamp,
                     error: e
                 });
-                consecutiveErrors++;
-                if (consecutiveErrors >= maxConsecutiveErrors) {
-                    showError();
-                }
+                showError();
             };
 
             img.src = snapshotWithTimestamp;

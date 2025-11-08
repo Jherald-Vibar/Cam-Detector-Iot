@@ -129,46 +129,37 @@
         /**
      * Update ngrok URL
      */
-    public function updateNgrokUrl(Request $request)
-    {
-        try {
-            $request->validate([
-                'ngrok_url' => 'required|url|regex:/^https:\/\/.*\.ngrok.*\.app$|^https:\/\/.*\.ngrok-free\.dev$/'
-            ], [
-                'ngrok_url.regex' => 'Please provide a valid ngrok URL (e.g., https://abc123.ngrok-free.dev)'
-            ]);
+    /**
+ * Update ngrok URL
+ */
+public function updateNgrokUrl(Request $request)
+{
+    try {
+        $request->validate([
+            'ngrok_url' => 'required|url|starts_with:https://'
+        ]);
 
-            $ngrokUrl = rtrim($request->ngrok_url, '/');
+        $ngrokUrl = rtrim($request->input('ngrok_url'), '/');
 
-            // Store in cache (24 hour expiry, similar to your camera IP pattern)
-            Cache::put('ngrok_url', $ngrokUrl, now()->addHours(24));
+        // Store in cache (24 hour expiry)
+        Cache::put('ngrok_url', $ngrokUrl, now()->addHours(24));
 
-            Log::info("🌐 ngrok URL updated: {$ngrokUrl}");
+        Log::info("🌐 ngrok URL updated: {$ngrokUrl}");
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'ngrok URL updated successfully',
-                'ngrok_url' => $ngrokUrl,
-                'expires_in' => '24 hours'
-            ]);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'ngrok URL updated successfully',
+            'ngrok_url' => $ngrokUrl
+        ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid ngrok URL',
-                'errors' => $e->errors()
-            ], 422);
-
-        } catch (\Exception $e) {
-            Log::error("❌ Failed to update ngrok URL: " . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to update ngrok URL',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to update ngrok URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
     }
-
+}
     /**
      * Remove ngrok URL (switch back to local IP)
      */

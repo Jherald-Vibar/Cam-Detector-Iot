@@ -1514,69 +1514,52 @@
 // Add these functions to your existing JavaScript
 
 // Update ngrok URL
-async function updateNgrokUrl() {
-    const url = document.getElementById('ngrokUrlInput').value.trim();
-
-    if (!url) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Missing URL',
-            text: 'Please enter a ngrok URL',
-            confirmButtonColor: '#e50914'
-        });
-        return;
-    }
-
-    Swal.fire({
-        title: 'Updating...',
-        text: 'Please wait',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
+/**
+ * Update ngrok URL
+ */
+public function updateNgrokUrl(Request $request)
+{
     try {
-        const response = await fetch('/api/ngrok/update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({ ngrok_url: url })
-        });
+        $request->validate([
+            'ngrok_url' => [
+                'required',
+                'url',
+                'regex:/^https:\/\/.+\.ngrok.*\.(app|dev)$/'
+            ]
+        ], [
+            'ngrok_url.regex' => 'Please provide a valid ngrok URL (e.g., https://abc123.ngrok-free.dev)'
+        ]);
 
-        const data = await response.json();
+        $ngrokUrl = rtrim($request->input('ngrok_url'), '/');
 
-        // Log the full response for debugging
-        console.log('Response:', data);
+        // Store in cache (24 hour expiry)
+        Cache::put('ngrok_url', $ngrokUrl, now()->addHours(24));
 
-        if (data.status === 'success') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Updated!',
-                text: 'ngrok URL updated successfully. Reloading...',
-                confirmButtonColor: '#e50914',
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                location.reload();
-            });
-        } else {
-            throw new Error(data.message || 'Failed to update');
-        }
-    } catch (error) {
-        console.error('Full error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Update Failed',
-            text: error.message || 'Server error occurred',
-            confirmButtonColor: '#e50914'
-        });
+        Log::info("🌐 ngrok URL updated: {$ngrokUrl}");
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'ngrok URL updated successfully',
+            'ngrok_url' => $ngrokUrl,
+            'expires_in' => '24 hours'
+        ]);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Invalid ngrok URL',
+            'errors' => $e->errors()
+        ], 422);
+
+    } catch (\Exception $e) {
+        Log::error("❌ Failed to update ngrok URL: " . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to update ngrok URL',
+            'error' => $e->getMessage()
+        ], 500);
     }
 }
-
 
 // Remove ngrok URL
 async function removeNgrokUrl() {

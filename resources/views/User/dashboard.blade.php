@@ -1175,7 +1175,7 @@
     async function startSnapshotMode() {
         if (isSnapshotModeActive) return;
 
-        console.log('📸 Starting snapshot mode at 10 FPS...');
+        console.log('📸 Starting camera feed...');
 
         // Fetch the current stream URL first
         await fetchStreamUrl();
@@ -1187,23 +1187,33 @@
         errorMsg.style.display = 'none';
         camSnapshot.style.display = 'none';
 
-        if (snapshotInterval) {
-            clearInterval(snapshotInterval);
-        }
-
-        const intervalMs = 1000 / currentFps;
-
-        snapshotInterval = setInterval(() => {
+        // For ngrok, use continuous stream (no interval needed)
+        if (usingNgrok) {
             updateSnapshot();
-        }, intervalMs);
 
-        updateSnapshot();
+            const modeText = 'Remote (Stream)';
+            document.getElementById('streamStatus').textContent = `${modeText} - Live MJPEG`;
+            console.log('✅ Stream mode active via ngrok');
+        } else {
+            // For local, use snapshot interval
+            if (snapshotInterval) {
+                clearInterval(snapshotInterval);
+            }
 
-        const modeText = usingNgrok ? 'Remote (ngrok)' : 'Local';
-        document.getElementById('streamStatus').textContent =
-            `${modeText} Snapshot Mode (${currentFps} FPS)`;
+            const intervalMs = 1000 / currentFps;
 
-        console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
+            snapshotInterval = setInterval(() => {
+                updateSnapshot();
+            }, intervalMs);
+
+            updateSnapshot();
+
+            const modeText = 'Local';
+            document.getElementById('streamStatus').textContent =
+                `${modeText} Snapshot Mode (${currentFps} FPS)`;
+
+            console.log(`✅ Snapshot mode active - ${currentFps} FPS via ${modeText}`);
+        }
     }
 
     function stopSnapshotMode() {
@@ -1212,13 +1222,19 @@
             snapshotInterval = null;
         }
 
+        if (window.streamFpsInterval) {
+            clearInterval(window.streamFpsInterval);
+            window.streamFpsInterval = null;
+        }
+
         isSnapshotModeActive = false;
         camSnapshot.style.display = 'none';
+        camSnapshot.src = ''; // Stop the stream
         loadingMsg.style.display = 'flex';
 
         document.getElementById('streamStatus').textContent = 'Stopped';
 
-        console.log('⏹️ Snapshot mode stopped');
+        console.log('⏹️ Camera feed stopped');
     }
 
     function updateSnapshot() {
@@ -1230,26 +1246,23 @@
 
         const timestamp = Date.now();
 
-        // For ngrok, use proxy endpoint to avoid CORS issues
+        // For ngrok, use stream endpoint via proxy (faster, continuous MJPEG)
         if (usingNgrok) {
-            const proxyUrl = '/api/proxy-snapshot?url=' + encodeURIComponent(snapshotUrl + '?t=' + timestamp);
+            const streamUrl = snapshotUrl.replace('/snapshot', '/stream');
+            const proxyUrl = '/api/proxy-stream?url=' + encodeURIComponent(streamUrl);
 
-            console.log('🖼️ Fetching snapshot via proxy:', proxyUrl);
+            console.log('📺 Using MJPEG stream via proxy:', proxyUrl);
 
-            const img = new Image();
-
-            img.onload = function() {
-                camSnapshot.src = this.src;
+            // For MJPEG streams, we can directly set the src
+            camSnapshot.onload = function() {
                 camSnapshot.style.display = 'block';
                 loadingMsg.style.display = 'none';
                 errorMsg.style.display = 'none';
-
                 updateTimestamp();
-                updateFpsCounter();
             };
 
-            img.onerror = function(e) {
-                console.error('❌ Proxied Snapshot failed:', {
+            camSnapshot.onerror = function(e) {
+                console.error('❌ Stream proxy failed:', {
                     proxyUrl: proxyUrl,
                     error: e,
                     hint: 'Check Laravel logs and ensure ngrok is running'
@@ -1257,9 +1270,14 @@
                 showError();
             };
 
-            img.src = proxyUrl;
+            camSnapshot.src = proxyUrl;
+
+            // Update FPS counter for stream
+            if (!window.streamFpsInterval) {
+                window.streamFpsInterval = setInterval(updateFpsCounter, 100);
+            }
         } else {
-            // For local IP, direct Image loading
+            // For local IP, direct Image loading with snapshots
             const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
             console.log('🖼️ Fetching snapshot directly:', snapshotWithTimestamp);

@@ -437,39 +437,81 @@ public function updateNgrokUrl(Request $request)
             ]);
         }
 
-        public function proxySnapshot(Request $request)
-{
-    try {
-        $url = $request->query('url');
+         public function proxySnapshot(Request $request)
+            {
+                try {
+                    $url = $request->query('url');
 
-        if (!$url) {
-            return response()->json(['error' => 'URL parameter required'], 400);
+                    if (!$url) {
+                        return response()->json(['error' => 'URL parameter required'], 400);
+                    }
+
+                    Log::info("🔄 Proxying snapshot request: {$url}");
+
+                    // Make request with custom user agent to bypass ngrok warning
+                    $response = Http::withHeaders([
+                        'User-Agent' => 'Mozilla/5.0 (compatible; TheodoreBot/1.0)',
+                        'ngrok-skip-browser-warning' => 'true'
+                    ])->timeout(10)->get($url);
+
+                    if ($response->successful()) {
+                        return response($response->body())
+                            ->header('Content-Type', $response->header('Content-Type') ?? 'image/jpeg')
+                            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                            ->header('Pragma', 'no-cache')
+                            ->header('Expires', '0');
+                    }
+
+                    Log::error("❌ Proxy request failed: HTTP " . $response->status());
+                    return response()->json(['error' => 'Failed to fetch snapshot'], 500);
+
+                } catch (\Exception $e) {
+                    Log::error("❌ Proxy snapshot error: " . $e->getMessage());
+                    return response()->json(['error' => $e->getMessage()], 500);
+                }
+            }
+
+
+        public function proxyStream(Request $request)
+        {
+            try {
+                $url = $request->query('url');
+
+                if (!$url) {
+                    Log::warning("⚠️ Stream proxy request missing URL parameter");
+                    return response()->json(['error' => 'URL parameter required'], 400);
+                }
+
+                Log::info("📺 Proxying MJPEG stream from: {$url}");
+
+                // Stream the MJPEG response
+                return response()->stream(function () use ($url) {
+                    $client = Http::withHeaders([
+                        'User-Agent' => 'Mozilla/5.0 (compatible; TheodoreBot/1.0)',
+                        'ngrok-skip-browser-warning' => 'true'
+                    ])->timeout(0); // No timeout for streams
+
+                    $response = $client->get($url);
+
+                    if ($response->successful()) {
+                        echo $response->body();
+                    }
+                }, 200, [
+                    'Content-Type' => 'multipart/x-mixed-replace; boundary=frame',
+                    'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0',
+                    'Connection' => 'keep-alive'
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error("❌ Stream proxy error: " . $e->getMessage());
+                return response()->json([
+                    'error' => $e->getMessage(),
+                    'hint' => 'Check if ngrok is running and ESP32 stream is accessible'
+                ], 500);
+            }
         }
-
-        Log::info("🔄 Proxying snapshot request: {$url}");
-
-        // Make request with custom user agent to bypass ngrok warning
-        $response = Http::withHeaders([
-            'User-Agent' => 'Mozilla/5.0 (compatible; TheodoreBot/1.0)',
-            'ngrok-skip-browser-warning' => 'true'
-        ])->timeout(10)->get($url);
-
-        if ($response->successful()) {
-            return response($response->body())
-                ->header('Content-Type', $response->header('Content-Type') ?? 'image/jpeg')
-                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                ->header('Pragma', 'no-cache')
-                ->header('Expires', '0');
-        }
-
-        Log::error("❌ Proxy request failed: HTTP " . $response->status());
-        return response()->json(['error' => 'Failed to fetch snapshot'], 500);
-
-    } catch (\Exception $e) {
-        Log::error("❌ Proxy snapshot error: " . $e->getMessage());
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
-}
 
         /**
          * Dashboard view

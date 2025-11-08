@@ -1229,48 +1229,41 @@
         }
 
         const timestamp = Date.now();
-        const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
 
-        console.log('🖼️ Fetching snapshot from:', snapshotWithTimestamp);
-
-        // For ngrok, use fetch to add custom headers
+        // For ngrok, use proxy endpoint to avoid CORS issues
         if (usingNgrok) {
-            fetch(snapshotWithTimestamp, {
-                method: 'GET',
-                headers: {
-                    'ngrok-skip-browser-warning': 'true',
-                    'User-Agent': 'CustomAgent'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.blob();
-            })
-            .then(blob => {
-                const objectUrl = URL.createObjectURL(blob);
-                camSnapshot.onload = function() {
-                    URL.revokeObjectURL(objectUrl);
-                };
-                camSnapshot.src = objectUrl;
+            const proxyUrl = '/api/proxy-snapshot?url=' + encodeURIComponent(snapshotUrl + '?t=' + timestamp);
+
+            console.log('🖼️ Fetching snapshot via proxy:', proxyUrl);
+
+            const img = new Image();
+
+            img.onload = function() {
+                camSnapshot.src = this.src;
                 camSnapshot.style.display = 'block';
                 loadingMsg.style.display = 'none';
                 errorMsg.style.display = 'none';
 
                 updateTimestamp();
                 updateFpsCounter();
-            })
-            .catch(error => {
-                console.error('❌ ngrok Snapshot failed:', {
-                    url: snapshotWithTimestamp,
-                    error: error.message,
-                    hint: 'Check if ngrok is running and ESP32 is accessible'
+            };
+
+            img.onerror = function(e) {
+                console.error('❌ Proxied Snapshot failed:', {
+                    proxyUrl: proxyUrl,
+                    error: e,
+                    hint: 'Check Laravel logs and ensure ngrok is running'
                 });
                 showError();
-            });
+            };
+
+            img.src = proxyUrl;
         } else {
-            // For local IP, use regular Image loading
+            // For local IP, direct Image loading
+            const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
+
+            console.log('🖼️ Fetching snapshot directly:', snapshotWithTimestamp);
+
             const img = new Image();
 
             img.onload = function() {

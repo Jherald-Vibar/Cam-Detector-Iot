@@ -974,7 +974,7 @@
 
                        <form method="POST" action="{{ route('account.update') }}" id="accountForm" onsubmit="saveSettings(event)">
                             @csrf
-                            @method('PUT') <!-- Use PUT for updates -->
+                            @method('PUT')
 
                             <div class="form-grid">
                                 <div class="form-row">
@@ -1333,72 +1333,70 @@
 
     // ==================== SETTINGS FUNCTIONS ====================
     function saveSettings(e) {
-    e.preventDefault();
+        e.preventDefault();
 
-    const form = e.target;
-    const formData = new FormData(form);
-
-    Swal.fire({
-        title: 'Saving Changes...',
-        text: 'Please wait',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    // Send form data normally (web route)
-    fetch(form.action, {
-        method: 'POST', // Use POST but Laravel will handle as PUT via _method
-        body: formData,
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest' // Important for Laravel to recognize AJAX
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => { throw err; });
-        }
-        return response.json();
-    })
-    .then(result => {
-        if (result.status === 'success') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Success!',
-                text: result.message,
-                confirmButtonColor: '#e50914'
-            }).then(() => {
-                // Optional: Redirect or update UI
-                navigateTo('home');
-            });
-        } else {
-            throw new Error(result.message || 'Failed to update account');
-        }
-    })
-    .catch(error => {
-        console.error('Update error:', error);
-
-        let errorMessage = 'Something went wrong. Please try again.';
-
-        if (error.errors) {
-            // Handle validation errors
-            errorMessage = Object.values(error.errors).flat().join('<br>');
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
+        const form = e.target;
+        const formData = new FormData(form);
 
         Swal.fire({
-            icon: 'error',
-            title: 'Update Failed',
-            html: errorMessage,
-            confirmButtonColor: '#e50914'
+            title: 'Saving Changes...',
+            text: 'Please wait',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
         });
-    });
-}
+
+        // FIXED: Use relative URL instead of form.action to avoid mixed content
+        fetch('/user/account-update', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: result.message,
+                    confirmButtonColor: '#e50914'
+                }).then(() => {
+                    navigateTo('home');
+                });
+            } else {
+                throw new Error(result.message || 'Failed to update account');
+            }
+        })
+        .catch(error => {
+            console.error('Update error:', error);
+
+            let errorMessage = 'Something went wrong. Please try again.';
+
+            if (error.errors) {
+                errorMessage = Object.values(error.errors).flat().join('<br>');
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                html: errorMessage,
+                confirmButtonColor: '#e50914'
+            });
+        });
+    }
 
     function togglePassword(inputId) {
       const input = document.getElementById(inputId);

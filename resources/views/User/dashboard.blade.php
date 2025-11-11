@@ -812,7 +812,7 @@
                             <div style="display: flex; align-items: center; gap: 15px;">
                                 <div class="status-badge">
                                     <span class="status-dot"></span>
-                                    <span id="streamStatus">Ready</span>
+                                    <span id="streamStatus">Snapshot Mode</span>
                                 </div>
                                 <div class="stream-controls">
                                     <button class="stream-btn start" onclick="startSnapshotMode()">Start</button>
@@ -841,7 +841,7 @@
 
                         <div class="camera-info">
                             <span>Connected to: <strong id="cameraIp">Loading...</strong></span>
-                            <span>Mode: <span id="connectionMode">Optimized 15 FPS</span> | FPS: <span class="fps-indicator" id="currentFps">0</span></span>
+                            <span>Mode: <span id="connectionMode">Snapshot</span> | FPS: <span class="fps-indicator" id="currentFps">10</span></span>
                         </div>
                     </div>
 
@@ -969,7 +969,7 @@
             </div>
         </div>
 
-        <!-- Settings Page -->
+        <!-- Settings Page (abbreviated for space) -->
         <div id="settingsPage" class="page">
             <div class="container">
                 <div class="header">
@@ -1077,32 +1077,27 @@
     </form>
 
     <script>
-    // ==================== OPTIMIZED CAMERA CONTROL (FIXED 15 FPS) ====================
-
-    // GLOBAL VARIABLES
+    // ==================== GLOBAL VARIABLES ====================
     const camSnapshot = document.getElementById('cameraSnapshot');
     const loadingMsg = document.getElementById('loadingMsg');
     const errorMsg = document.getElementById('errorMsg');
     const timestampDiv = document.getElementById('timestamp');
 
+    // These will be set dynamically based on ngrok status
     let baseUrl = '';
     let snapshotUrl = '';
     let usingNgrok = false;
 
-    // OPTIMIZED SNAPSHOT MODE VARIABLES
+    // Snapshot mode variables
     let snapshotInterval = null;
-    let targetFps = 15; // Fixed at 15 FPS
-    let frameInterval = Math.floor(1000 / targetFps); // 66ms for 15 FPS
+    let currentFps = 15;
+    let frameCount = 0;
+    let lastFrameTime = Date.now();
     let isSnapshotModeActive = false;
     let consecutiveErrors = 0;
     let maxConsecutiveErrors = 3;
 
-    // FPS TRACKING
-    let frameCount = 0;
-    let lastFpsUpdate = Date.now();
-    let actualFps = 0;
-
-    // SERVO CONTROL
+    // Servo Control Variables
     let currentPanAngle = 90;
     let currentTiltAngle = 90;
     const servoStep = 15;
@@ -1115,25 +1110,40 @@
 
             if (data.status === 'success') {
                 baseUrl = data.base_url;
-                snapshotUrl = `${baseUrl}/snapshot`;
+
+                // Use /snapshot for both ngrok and local
+                if (data.using_ngrok) {
+                    snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for ngrok
+                } else {
+                    snapshotUrl = `${baseUrl}/snapshot`; // Use /snapshot for local
+                }
+
                 usingNgrok = data.using_ngrok;
 
-                console.log('📡 Stream URL:', snapshotUrl);
+                console.log('📡 Stream URL fetched:', {
+                    baseUrl,
+                    snapshotUrl,
+                    usingNgrok,
+                    mode: data.mode
+                });
 
+                // Update UI
                 const displayText = usingNgrok ? 'Remote (ngrok)' : baseUrl.replace('http://', '');
                 document.getElementById('cameraIp').textContent = displayText;
-                document.getElementById('connectionMode').textContent = `Optimized ${targetFps} FPS`;
+                document.getElementById('connectionMode').textContent = 'Continuous Snapshots';
 
                 return true;
             }
             throw new Error('Failed to fetch stream URL');
         } catch (error) {
             console.error('❌ Error fetching stream URL:', error);
+            // Fallback to local IP
             const fallbackIp = "{{ $cameraIp ?? '192.168.68.112' }}";
             baseUrl = `http://${fallbackIp}`;
             snapshotUrl = `${baseUrl}/snapshot`;
             usingNgrok = false;
             document.getElementById('cameraIp').textContent = fallbackIp;
+            document.getElementById('connectionMode').textContent = 'Continuous Snapshots';
             return false;
         }
     }
@@ -1163,6 +1173,7 @@
         }
     }
 
+    // Load saved theme
     function loadTheme() {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'light') {
@@ -1170,38 +1181,47 @@
         }
     }
 
-    // ==================== OPTIMIZED SNAPSHOT MODE ====================
+    // ==================== SNAPSHOT MODE FUNCTIONS ====================
     async function startSnapshotMode() {
         if (isSnapshotModeActive) return;
 
-        console.log(`📸 Starting optimized ${targetFps} FPS feed...`);
+        console.log('📸 Starting continuous snapshot feed at ' + currentFps + ' FPS...');
 
+        // Fetch the current stream URL first
         await fetchStreamUrl();
 
         isSnapshotModeActive = true;
         consecutiveErrors = 0;
-        frameCount = 0;
-        lastFpsUpdate = Date.now();
 
+        // Show loading initially
         loadingMsg.style.display = 'flex';
         errorMsg.style.display = 'none';
         camSnapshot.style.display = 'none';
 
-        // Clear existing interval
+        // Clear any existing intervals
         if (snapshotInterval) {
             clearInterval(snapshotInterval);
+            snapshotInterval = null;
+        }
+        if (window.streamFpsInterval) {
+            clearInterval(window.streamFpsInterval);
+            window.streamFpsInterval = null;
         }
 
-        // Start optimized snapshot fetching
+        // For BOTH ngrok and local, use continuous snapshot mode
+        console.log('✅ Using continuous snapshot mode:', snapshotUrl);
+
+        // Set up interval for continuous snapshots
+        const intervalMs = 1000 / currentFps;
         snapshotInterval = setInterval(() => {
-            fetchOptimizedSnapshot();
-        }, frameInterval);
+            updateSnapshot();
+        }, intervalMs);
 
-        // Fetch first frame immediately
-        fetchOptimizedSnapshot();
+        // Start immediately
+        updateSnapshot();
 
-        document.getElementById('streamStatus').textContent = `Live (${targetFps} FPS)`;
-        console.log(`✅ Optimized mode active - ${targetFps} FPS`);
+        document.getElementById('streamStatus').textContent = `Continuous Snapshots (${currentFps} FPS)`;
+        console.log(`✅ Continuous snapshot mode active - ${currentFps} FPS`);
     }
 
     function stopSnapshotMode() {
@@ -1209,83 +1229,76 @@
             clearInterval(snapshotInterval);
             snapshotInterval = null;
         }
+        if (window.streamFpsInterval) {
+            clearInterval(window.streamFpsInterval);
+            window.streamFpsInterval = null;
+        }
 
         isSnapshotModeActive = false;
         consecutiveErrors = 0;
-        frameCount = 0;
         camSnapshot.style.display = 'none';
-        camSnapshot.src = '';
+        camSnapshot.src = ''; // Clear the image
         loadingMsg.style.display = 'flex';
 
         document.getElementById('streamStatus').textContent = 'Stopped';
-        document.getElementById('currentFps').textContent = '0';
 
         console.log('⏹️ Camera feed stopped');
     }
 
-    // ==================== OPTIMIZED SNAPSHOT FETCHING ====================
-    function fetchOptimizedSnapshot() {
+    function updateSnapshot() {
         if (!snapshotUrl) {
-            console.error('❌ No snapshot URL');
+            console.error('❌ No snapshot URL available');
             showError();
             return;
         }
 
-        // Use timestamp to prevent caching
         const timestamp = Date.now();
-        const url = `${snapshotUrl}?t=${timestamp}`;
+
+        // For BOTH ngrok and local, use continuous snapshot fetching
+        const snapshotWithTimestamp = `${snapshotUrl}?t=${timestamp}&fps=${currentFps}`;
+
+        console.log('🖼️ Fetching continuous snapshot:', snapshotWithTimestamp);
 
         const img = new Image();
-        img.crossOrigin = 'anonymous';
 
         img.onload = function() {
-            // Update display
             camSnapshot.src = this.src;
             camSnapshot.style.display = 'block';
             loadingMsg.style.display = 'none';
             errorMsg.style.display = 'none';
-
             consecutiveErrors = 0;
 
-            // Update FPS counter
-            updateFpsCounter();
             updateTimestamp();
+            updateFpsCounter();
         };
 
         img.onerror = function(e) {
-            console.error('❌ Snapshot failed');
+            console.error('❌ Snapshot failed:', {
+                url: snapshotWithTimestamp,
+                error: e
+            });
             consecutiveErrors++;
-
             if (consecutiveErrors >= maxConsecutiveErrors) {
                 showError();
             }
         };
 
-        // Start loading
-        img.src = url;
+        img.src = snapshotWithTimestamp;
     }
 
-    // ==================== FPS COUNTER ====================
     function updateFpsCounter() {
         frameCount++;
         const currentTime = Date.now();
-        const elapsed = currentTime - lastFpsUpdate;
+        const elapsed = currentTime - lastFrameTime;
 
         if (elapsed >= 1000) {
-            actualFps = Math.round((frameCount * 1000) / elapsed);
+            const actualFps = Math.round((frameCount * 1000) / elapsed);
             document.getElementById('currentFps').textContent = actualFps;
-
             frameCount = 0;
-            lastFpsUpdate = currentTime;
-
-            // Log if FPS is significantly lower than target
-            if (actualFps < targetFps - 3) {
-                console.warn(`⚠️ FPS below target: ${actualFps}/${targetFps}`);
-            }
+            lastFrameTime = currentTime;
         }
     }
 
-    // ==================== TIMESTAMP UPDATE ====================
     function updateTimestamp() {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('en-US', {
@@ -1296,7 +1309,6 @@
         timestampDiv.textContent = timeStr;
     }
 
-    // ==================== ERROR HANDLING ====================
     function showError() {
         stopSnapshotMode();
         camSnapshot.style.display = 'none';
@@ -1305,7 +1317,7 @@
         console.log('❌ Camera connection failed');
     }
 
-    // ==================== SERVO CONTROL ====================
+    // ==================== SERVO CONTROL FUNCTIONS ====================
     function moveServo(direction) {
         let newPan = currentPanAngle;
         let newTilt = currentTiltAngle;
@@ -1362,7 +1374,7 @@
         const statusDiv = document.getElementById('servoStatus');
         statusDiv.textContent = `Moving to Pan: ${pan}° | Tilt: ${tilt}°`;
 
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
 
         fetch('/api/servo/move', {
             method: 'POST',
@@ -1375,6 +1387,7 @@
         })
         .then(response => response.json())
         .then(data => {
+            console.log(`Servo command sent: Pan=${pan}°, Tilt=${tilt}°`);
             if (data.status === 'success') {
                 statusDiv.textContent = `✅ Position: Pan ${data.pan}° | Tilt ${data.tilt}°`;
             } else {
@@ -1515,11 +1528,19 @@
             Swal.fire({
                 icon: 'warning',
                 title: 'Invalid URL',
-                text: 'Please enter a valid ngrok HTTPS URL',
+                text: 'Please enter a valid ngrok HTTPS URL (e.g., https://abc123.ngrok-free.app)',
                 confirmButtonColor: '#e50914'
             });
             return;
         }
+
+        Swal.fire({
+            title: 'Updating...',
+            text: 'Please wait',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
 
         try {
             const response = await fetch('/api/ngrok/update', {
@@ -1537,7 +1558,7 @@
                 Swal.fire({
                     icon: 'success',
                     title: 'Updated!',
-                    text: 'Restarting optimized stream...',
+                    text: 'ngrok URL updated. Restarting stream...',
                     confirmButtonColor: '#e50914',
                     timer: 1500,
                     showConfirmButton: false
@@ -1561,39 +1582,52 @@
     }
 
     async function removeNgrokUrl() {
-        try {
-            const response = await fetch('/api/ngrok/remove', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        Swal.fire({
+            title: 'Switch to Local IP?',
+            text: 'This will use your local network IP instead of ngrok',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#e50914',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, switch',
+            cancelButtonText: 'Cancel'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/api/ngrok/remove', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Switched!',
+                            text: 'Now using local IP. Restarting stream...',
+                            confirmButtonColor: '#e50914',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(async () => {
+                            stopSnapshotMode();
+                            await fetchStreamUrl();
+                            await checkNgrokStatus();
+                            setTimeout(() => { startSnapshotMode(); }, 500);
+                        });
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed',
+                        text: error.message,
+                        confirmButtonColor: '#e50914'
+                    });
                 }
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Switched!',
-                    text: 'Using local IP. Restarting...',
-                    confirmButtonColor: '#e50914',
-                    timer: 1500,
-                    showConfirmButton: false
-                }).then(async () => {
-                    stopSnapshotMode();
-                    await fetchStreamUrl();
-                    await checkNgrokStatus();
-                    setTimeout(() => { startSnapshotMode(); }, 500);
-                });
             }
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Failed',
-                text: error.message,
-                confirmButtonColor: '#e50914'
-            });
-        }
+        });
     }
 
     async function checkNgrokStatus() {
@@ -1622,19 +1656,16 @@
         loadTheme();
         initAccordion();
 
-        console.log('🚀 Initializing optimized camera system...');
-        console.log(`🎯 Target FPS: ${targetFps}`);
-        console.log(`⏱️ Frame interval: ${frameInterval}ms`);
+        console.log('🚀 Initializing camera system...');
 
         await fetchStreamUrl();
         await checkNgrokStatus();
 
-        console.log('📡 Snapshot URL:', snapshotUrl);
+        console.log('📡 Using URL:', snapshotUrl);
+        console.log('🎯 Servo control ready');
 
-        // Auto-start camera feed
+        // Auto-start the camera feed when page loads
         setTimeout(() => { startSnapshotMode(); }, 1000);
-
-        // Update timestamp every second
         setInterval(updateTimestamp, 1000);
 
         // Auto-reconnect if connection fails
@@ -1644,8 +1675,6 @@
                 startSnapshotMode();
             }
         }, 5000);
-
-        console.log('✅ System ready');
     });
 
     window.addEventListener('resize', function() {
@@ -1664,4 +1693,4 @@
     });
     </script>
 </body>
-</html
+</html>
